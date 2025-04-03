@@ -133,8 +133,7 @@ Usage:
   taskman stop <task-id> --user-id <user-id> [--server-address <host:port>] [--help]
 
 Description:
-  Stop a running task identified by its unique task ID. This command terminates the specified task 
-  and confirms the request was accepted.
+  Stop a running task identified by its unique task ID. This command terminates the specified task.
 
 Arguments:
   <task-id>
@@ -333,7 +332,7 @@ message StopTaskRequest {
     string task_id = 1;
 }
 
-// StopTaskResponse returns true if the stop task request was accepted; false otherwise
+// StopTaskResponse returns true if the stop task request was successful; false otherwise
 message StopTaskResponse {
     bool success = 1;
 }
