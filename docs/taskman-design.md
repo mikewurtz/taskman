@@ -366,7 +366,7 @@ message StreamTaskOutputRequest {
 // StreamTaskOutputResponse contains stdout and stderr output from the task
 // Each output line is sent as a separate message
 message StreamTaskOutputResponse {
-    string output = 1;
+    bytes output = 1;
 }
 ```
 
