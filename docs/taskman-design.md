@@ -25,39 +25,64 @@ This implementation provides a clean, modular solution for that problem by expos
 
 ### UX
 
+The server is started by running the taskman-server binary, which launches the gRPC service responsible for task lifecycle management. The listening port can be configured using the --grpc-port flag, defaulting to 50051 if not specified.
+
+In a production setting, additional flags could be introduced to configure --ca-key, --server-key, --server-cert, --log-level, and other operational parameters.
+```
+$ taskman-server --help
+Usage:
+  taskman-server [--grpc-port] [--help]
+
+Description:
+  This service manages task lifecycle (start, stop, status) and streams output to clients over a secure mTLS connection.
+
+Options:
+  --grpc-port <port>
+        The gRPC server port to expose the server on. Defaults to localhost:50051 if not set.
+  --help
+  		Display help information for the server command.
+Example:
+  $ taskman-server --grpc-port 12345
+```
+
 Users will interact with the exposed gRPC server APIs through commands provided by the `taskman` command line tool. This tool will utilize a gRPC client to communicate with the gRPC server. The user must pass a `--user-id` flag that allows the user to select which client they are. The CLI will pick from a hardcoded set of certificates in the application that will be part of the gRPC requests in order to perform authentication. The following CLI commands will be provided in the taskman client:
 
 #### start
-The start command starts a new task given the passed in full command and associates the task with the provided user-id. If successful the generated task-id will be returned.
+The start command starts a new task given the passed in command and associates the task with the provided user-id. If successful the generated task-id will be returned.
 
 ```
 $ taskman start --help
 Usage:
-  taskman start "<command>" --user-id <user-id> [--help]
+  taskman start --user-id <user-id> [--server-address <host:port>] [--help] -- <command> [args...]
 
 Description:
-  Start a new task by executing the specified command. The command must be provided in quotes, 
-  and the --user-id flag is required to identify the client initiating the request.
+  Start a new task by executing the specified command. The command may be passed as a single quoted string (for shell interpretation), or as separate arguments if no shell features are needed. The --user-id flag is required to identify the client initiating the request.
 
 Arguments:
-  <command>
-        The full command to execute, including the executable path.
-        Example: "/bin/ls"
+  <command> [args...]
+        The command to execute, followed by any optional arguments. The command can be passed as:
+        - A single quoted string for shell interpretation (e.g., "ls /myFolder | grep foo")
+        - A command with space-separated arguments (e.g., ls /myFolder)
+
+        The binary can be a full path or must exist in the system's PATH.
+        Example: "ls"
 
 Options:
   --user-id <user-id>
   		The user or client ID issuing the request (e.g., client001). This flag is required.
+  --server-address <host:port>
+        The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
   		Display help information for the start command.
 
 Example:
-  $ taskman start "/bin/ls /myFolder" --user-id client001
+  $ taskman start --user-id client001 -- ls /myFolder
 
 ```
 Example Output
 
 ```
-$ taskman start "/bin/ls /myFolder" --user-id client001
+$ taskman start --user-id client001 -- /bin/ls /myFolder
 TASK ID
 -------
 a7da14c7-b47a-4535-a263-5bb26e503002
@@ -65,12 +90,12 @@ a7da14c7-b47a-4535-a263-5bb26e503002
 ```
 
 #### get-status
-The get-status command is how the user can query an existing task by task-id. The task must have been created by the user in order for the server to return the task details. If the task does not exist or is not associated with the user a `NOT_FOUND` will be returned.
+The get-status command is how the user can query an existing task by task-id. The task must have been created by the user in order for the server to return the task details. If the task does not exist or is not associated with the user a `NOT_FOUND` will be returned. The only exception is an admin will be able to get-status for any existing task regardless of who owns it.
 
 ```
 $ taskman get-status --help
 Usage:
-  taskman get-status <task-id> --user-id <user-id> [--help]
+  taskman get-status <task-id> --user-id <user-id> [--server-address <host:port>] [--help]
 
 Description:
   Retrieve the status of a task using its unique task ID. The command displays details such as whether 
@@ -82,6 +107,8 @@ Arguments:
 Options:
   --user-id <user-id>   
   		The user or client ID issuing the request (e.g., client001). This flag is required.
+  --server-address <host:port>
+        The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
   		Display help information for the get-status command.
 
@@ -99,11 +126,11 @@ a7da14c7-b47a-4535-a263-5bb26e503002   2024-11-10 23:00:00  1234  false    0    
 ```
 
 #### stop
-The stop command will stop the provided task id if the task is running and owned by the user. If the task is not running this command will have no effect. If the user does not own the task or the task does not exist a `NOT_FOUND` will be returned.
+The stop command will stop the provided task id if the task is running and owned by the user. If the task is not running this command will have no effect. If the user does not own the task or the task does not exist a `NOT_FOUND` will be returned. The only exception is an admin will be able to execute stop on any existing task regardless of who owns it.
 
 ```
 Usage:
-  taskman stop <task-id> --user-id <user-id> [--help]
+  taskman stop <task-id> --user-id <user-id> [--server-address <host:port>] [--help]
 
 Description:
   Stop a running task identified by its unique task ID. This command terminates the specified task 
@@ -117,6 +144,8 @@ Arguments:
 Options:
   --user-id <user-id>
         The user or client ID issuing the request (e.g., client001). This flag is required.
+  --server-address <host:port>
+        The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
         Display help information for the stop command.
 
@@ -134,11 +163,11 @@ Example:
 ```
 
 #### stream
-The stream command will provide users with a stream of the output given the provided `task-id`. If the task is running, the user will receive the output as it is produced continuously starting from the top of the output. If the task is not running, the user will receive the output until the end of the output stream and then close. If the task is running and the task completes or is stopped; the stream will receive the final output and be closed. If the task does not exist or is not associated with the user a `NOT_FOUND` will be returned.
+The stream command will provide users with a stream of the output given the provided `task-id`. If the task is running, the user will receive the output as it is produced continuously starting from the top of the output. If the task is not running, the user will receive the output until the end of the output stream and then close. If the task is running and the task completes or is stopped; the stream will receive the final output and be closed. The only exception is an admin will be able to run stream for any existing task regardless of who owns it.
 
 ```
 Usage:
-  taskman stream <task-id> --user-id <user-id> [--help]
+  taskman stream <task-id> --user-id <user-id> [--server-address <host:port>] [--help]
 
 Description:
   Stream real-time output from a running task identified by its unique task ID.
@@ -152,6 +181,8 @@ Arguments:
 Options:
   --user-id <user-id>
         The user or client ID issuing the request (e.g., client001). This flag is required.
+  --server-address <host:port>
+        The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
         Display help information for the stream command.
 
@@ -169,14 +200,14 @@ file1.txt          file2.txt               file3.txt               file4.txt    
 ```
 
 ### Library
-A reusable library will be implemented with functionality to start, stop, get-status, and stream jobs. A gRPC server will wrap this functionality of the library and expose the APIs.
+A reusable library will be implemented with functionality to start, stop, get-status, and stream jobs. A gRPC server will wrap this functionality of the library and expose the APIs. The library will leverage the standard gRPC error codes and build the error objects using google.golang.org/grpc/status. 
 
 #### Process Execution Lifecycle
 Tasks will be created using the go package `os/exec` to create child processes. The child process will run asynchronously until it completes or is stopped by the user calling the stop CLI command. Each process will be added to its own cgroup such as `/sys/fs/cgroup/<group_name>/cgroup.procs` and the process will be limited to the quotas set for the cgroup.
 
 By leveraging the `syscall` library we can set the [SysProcAttr](https://pkg.go.dev/syscall#SysProcAttr) to have `UseCgroupFD` and `CgroupFD` set. This will put the child process into the provided cgroup file descriptor during the fork phase before the exec call; avoiding any time where the child process executes outside of the cgroup. This requires the use of cgroup v2, go 1.22 or higher, and linux kernel 5.7 or higher.
 
-When the stop CLI command is executed, the library will first try and cleanly terminate the process with a SIGTERM but if the process is still running after a grace period a SIGKILL will be sent.
+When the stop CLI command is executed, the library will end the process immediately with a SIGKILL. In a full-fledged service we would want to first try and cleanly terminate the process with a SIGTERM but if the process is still running after a grace period a SIGKILL will be sent.
 
 #### Cgroups
 The library will utilize cgroups v2 and use the cpu, memory, and io cgroup controllers. The library code will create a cgroup for each task named after the task's uuid (e.g., /sys/fs/cgroup/a7da14c7-b47a-4535-a263-5bb26e503002). The cpu and io cgroup controllers will be configured with absolute bandwidth control and the memory controller will be configured with a max limit.
@@ -197,9 +228,11 @@ The library will utilize cgroups v2 and use the cpu, memory, and io cgroup contr
 The actual values may be different in the actual implementation of the library. These values will be hard coded and not configurable for the exercise. The IO bandwidth restriction will be limited to just one block device with device number Major:Minor 8:0.
 
 #### Streaming
-Streaming will be implemented to support multiple clients streaming the output of a task at the same time and each stream call will start at the top of the output of the task. The output stream will combine the stdout and stderr process outputs and capture their output in goroutines. In a production system we would consider allowing the user to specify if they want stdout or stderr streams separately.
+Streaming will support multiple clients concurrently consuming the output of a task. Each stream will begin at the start of the task's output. The output will include both stdout and stderr, which will be captured by using the same io.Writer for both. This ensures that output is collected in a consistent and thread-safe manner. In a production system, we may allow clients to specify whether they want to receive only stdout, only stderr, or both.
 
-When a new stream request is made, the user will "subscribe" to the task's output stream and receive updates through a Go channel. These updates will be pushed to each user through their channel so they receive real-time updates. The stream will remain open until the process terminates. A rate limiter will be used to throttle the frequency of messages sent, ensuring that bursts of output do not overwhelm the client or network. Additionally, mutexes will be used to protect shared data to avoid data races and potential deadlocks.
+When a new stream request is made, the user will "subscribe" to the task's output stream and receive updates through a dedicated Go channel. Each channel is buffered with a fixed size to protect against unbounded memory usage. If a client cannot keep up and their buffer reaches the threshold, the server will close the connection to avoid blocking other consumers.
+
+Under normal operation, the stream will remain open until the process terminates. Mutexes will be used to protect shared data to avoid data races and potential deadlocks. In a production environment, a rate limiter would be used to throttle the frequency of messages sent, ensuring that bursts of output do not overwhelm the client or network.
 
 If the task has already completed and the user calls stream task they will receive the output in full and then the stream will terminate at EOF.
 
@@ -233,7 +266,15 @@ tlsConfig := &tls.Config{
 ```
 Since only TLS version 1.3 is being supported we do not need to include a list of CipherSuites because they are fixed in Go see [crypto/tls](https://github.com/golang/go/blob/master/src/crypto/tls/common.go#L688-L697).
 
-The client and server certificates will be signed by a CA that is generated locally. This CA certificate will be self signed and not by a trusted third party. These certificates will be committed to the exercise repository as a proof of concept. In a production environment, we would want these certificates to be generated, short-lived, and renewed through automation securely.
+The client and server certificates will be signed by a CA that is generated locally. This CA certificate will be self signed and not by a trusted third party. These certificates will be committed to the exercise repository as a proof of concept. These certificates will be generated using `openssl` with the following details:
+
+```
+Public Key Algorithm: rsaEncryption
+Public Key Size: 4096 bit
+Signature Algorithm: sha256WithRSAEncryption
+```
+
+In a production environment, we would want these certificates to be generated, short-lived, and renewed through automation securely.
 
 #### Authorization
 Each certificate will be generated with a Common Name (CN) that will identify the user. The certificate's common name will be extracted by the gRPC server and associated with each created task. When a user makes a request against a task their common name will be extracted from the provided certificate on the request and must match the name associated with the task on the server in order for requests to be accepted.
@@ -258,6 +299,20 @@ service TaskManager {
     rpc GetTaskStatus (TaskStatusRequest) returns (TaskStatusResponse);
     // StreamTaskOutput streams the output of a task by task ID
     rpc StreamTaskOutput (StreamTaskOutputRequest) returns (stream StreamTaskOutputResponse);
+}
+
+// JobStatus tracks status of job
+enum JobStatus {
+    // job is in an unknown error state
+    JOB_STATUS_UNKNOWN = 0;
+    // job is currently running
+    JOB_STATUS_STARTED = 1;
+    // job was manually stopped by client
+    JOB_STATUS_STOPPED = 2;
+    // job completed and exited normally
+    JOB_STATUS_EXITED_OK = 3;
+    // job exited with a non-zero status
+    JOB_STATUS_EXITED_ERROR = 4;
 }
 
 // StartTaskRequest contains the command and arguments to start a new task
@@ -292,11 +347,11 @@ message TaskStatusResponse {
     // UUID v4 ID of the task generated by the server
     string task_id = 1;
     // Exit code of the task; only set if task is not running
-    int32 exit_code = 2;
+    optional int32 exit_code = 2;
     // PID of the process picked by the server
     string process_id = 3;
-    // true if the task is currently running; false otherwise 
-    bool running = 4;
+    // job status tracks status of job
+    JobStatus status = 4;
     // Timestamp when the task started
     google.protobuf.Timestamp start_time = 5;
     // Timestamp when the task ended; only set if task is not running
