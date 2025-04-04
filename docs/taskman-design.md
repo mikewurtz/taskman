@@ -38,9 +38,9 @@ Description:
 
 Options:
   --server-address <host:port>
-        The address the gRPC server will listen on (e.g., localhost:50051). Defaults to localhost:50051 if not set.
+      The address the gRPC server will listen on (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
-  		Display help information for the server command.
+      Display help information for the server command.
 Example:
   $ taskman-server --server-address localhost:12345
 ```
@@ -69,11 +69,11 @@ Arguments:
 
 Options:
   --user-id <user-id>
-  		The user or client ID issuing the request (e.g., client001). This flag is required.
+      The user or client ID issuing the request (e.g., client001). This flag is required.
   --server-address <host:port>
-        The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
+      The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
-  		Display help information for the start command.
+      Display help information for the start command.
 
 Example:
   $ taskman start --user-id client001 -- ls /myFolder
@@ -106,11 +106,11 @@ Arguments:
 
 Options:
   --user-id <user-id>   
-  		The user or client ID issuing the request (e.g., client001). This flag is required.
+      The user or client ID issuing the request (e.g., client001). This flag is required.
   --server-address <host:port>
-        The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
+      The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
-  		Display help information for the get-status command.
+      Display help information for the get-status command.
 
 Example:
   $ taskman get-status a7da14c7-b47a-4535-a263-5bb26e503002 --user-id client001
@@ -142,11 +142,11 @@ Arguments:
 
 Options:
   --user-id <user-id>
-        The user or client ID issuing the request (e.g., client001). This flag is required.
+      The user or client ID issuing the request (e.g., client001). This flag is required.
   --server-address <host:port>
-        The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
+      The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
-        Display help information for the stop command.
+      Display help information for the stop command.
 
 Example:
   $ taskman stop a7da14c7-b47a-4535-a263-5bb26e503002 --user-id client001
@@ -179,11 +179,11 @@ Arguments:
 
 Options:
   --user-id <user-id>
-        The user or client ID issuing the request (e.g., client001). This flag is required.
+      The user or client ID issuing the request (e.g., client001). This flag is required.
   --server-address <host:port>
-        The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
+      The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
-        Display help information for the stream command.
+      Display help information for the stream command.
 
 Example:
   $ taskman stream a7da14c7-b47a-4535-a263-5bb26e503002 --user-id client001
