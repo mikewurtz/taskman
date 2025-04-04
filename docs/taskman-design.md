@@ -25,24 +25,24 @@ This implementation provides a clean, modular solution for that problem by expos
 
 ### UX
 
-The server is started by running the taskman-server binary, which launches the gRPC service responsible for task lifecycle management. The listening port can be configured using the --grpc-port flag, defaulting to 50051 if not specified.
+The server is started by running the taskman-server binary, which launches the gRPC service responsible for task lifecycle management. The listening address can be configured using the --server-address flag, defaulting to localhost:50051 if not specified.
 
 In a production setting, additional flags could be introduced to configure --ca-key, --server-key, --server-cert, --log-level, and other operational parameters.
 ```
 $ taskman-server --help
 Usage:
-  taskman-server [--grpc-port] [--help]
+  taskman-server [--server-address] [--help]
 
 Description:
   This service manages task lifecycle (start, stop, status) and streams output to clients over a secure mTLS connection.
 
 Options:
-  --grpc-port <port>
-        The gRPC server port to expose the server on. Defaults to localhost:50051 if not set.
+  --server-address <host:port>
+        The address the gRPC server will listen on (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
   		Display help information for the server command.
 Example:
-  $ taskman-server --grpc-port 12345
+  $ taskman-server --server-address localhost:12345
 ```
 
 Users will interact with the exposed gRPC server APIs through commands provided by the `taskman` command line tool. This tool will utilize a gRPC client to communicate with the gRPC server. The user must pass a `--user-id` flag that allows the user to select which client they are. The CLI will pick from a hardcoded set of certificates in the application that will be part of the gRPC requests in order to perform authentication. The following CLI commands will be provided in the taskman client:
