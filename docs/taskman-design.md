@@ -310,7 +310,7 @@ enum JobStatus {
     JOB_STATUS_STOPPED = 2;
     // job completed and exited normally
     JOB_STATUS_EXITED_OK = 3;
-    // job exited with a non-zero status
+    // job exited with a non-zero status and was not stopped
     JOB_STATUS_EXITED_ERROR = 4;
 }
 
