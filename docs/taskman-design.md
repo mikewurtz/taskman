@@ -56,12 +56,12 @@ Usage:
   taskman start --user-id <user-id> [--server-address <host:port>] [--help] -- <command> [args...]
 
 Description:
-  Start a new task by executing the specified command. The command may be passed as a single quoted string (for shell interpretation), or as separate arguments if no shell features are needed. The --user-id flag is required to identify the client initiating the request.
+  Start a new task by executing the specified command. The command may be passed as a quoted string (for shell interpretation), or as separate arguments if no shell features are needed. The --user-id flag is required to identify the client initiating the request.
 
 Arguments:
   <command> [args...]
         The command to execute, followed by any optional arguments. The command can be passed as:
-        - A single quoted string for shell interpretation (e.g., "ls /myFolder | grep foo")
+        - A quoted string for shell interpretation (e.g., "ls /myFolder | grep foo")
         - A command with space-separated arguments (e.g., ls /myFolder)
 
         The binary can be a full path or must exist in the system's PATH.
@@ -133,7 +133,7 @@ Usage:
   taskman stop <task-id> --user-id <user-id> [--server-address <host:port>] [--help]
 
 Description:
-  Stop a running task identified by its unique task ID. This command terminates the specified task.
+  Stop a running task identified by its unique task ID.
 
 Arguments:
   <task-id>
