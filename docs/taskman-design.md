@@ -56,13 +56,12 @@ Usage:
   taskman start --user-id <user-id> [--server-address <host:port>] [--help] -- <command> [args...]
 
 Description:
-  Start a new task by executing the specified command. The command may be passed as a quoted string (for shell interpretation), or as separate arguments if no shell features are needed. The --user-id flag is required to identify the client initiating the request.
+  Start a new task by executing the specified command. The --user-id flag is required to identify the client initiating the request.
 
 Arguments:
   <command> [args...]
-        The command to execute, followed by any optional arguments. The command can be passed as:
-        - A quoted string for shell interpretation (e.g., "ls /myFolder | grep foo")
-        - A command with space-separated arguments (e.g., ls /myFolder)
+        The command to execute, followed by any optional arguments. The command should be passed as:
+        - A command with space-separated arguments (e.g., ls /myFolder or sh -c 'command with spaces')
 
         The binary can be a full path or must exist in the system's PATH.
         Example: "ls"
@@ -120,9 +119,9 @@ Example output
 
 ```
 $ taskman get-status a7da14c7-b47a-4535-a263-5bb26e503002 --user-id client001
-TASK ID                                START TIME           PID   RUNNING  EXIT CODE  END TIME
--------                                ----------           ---   -------  ---------  ---------
-a7da14c7-b47a-4535-a263-5bb26e503002   2024-11-10 23:00:00  1234  false    0          2024-11-10 23:05:00
+TASK ID                               START TIME           PID   STATUS                EXIT CODE  SIGNAL  SOURCE  END TIME
+-------                               ----------           ---   ------                ---------  ------  ------  --------
+a7da14c7-b47a-4535-a263-5bb26e503002  2024-11-10 22:58:00  2345  JOB_STATUS_EXITED_OK  0          -       -       2024-11-10 23:00:00
 ```
 
 #### stop
@@ -229,7 +228,7 @@ The actual values may be different in the actual implementation of the library. 
 #### Streaming
 Streaming will support multiple clients concurrently consuming the output of a task. Each stream will begin at the start of the task's output. The output will include both stdout and stderr, which will be captured by using the same io.Writer for both. This ensures that output is collected in a consistent and thread-safe manner. In a production system, we may allow clients to specify whether they want to receive only stdout, only stderr, or both.
 
-When a new stream request is made, the user will "subscribe" to the task's output stream and receive updates through a dedicated Go channel. Each channel is buffered with a fixed size to protect against unbounded memory usage. If a client cannot keep up and their buffer reaches the threshold, the server will close the connection to avoid blocking other consumers.
+When a new stream request is made, the client subscribes to the task's output and receives updates through a dedicated buffered Go channel. The buffer size is fixed to avoid unbounded memory usage. Each subscriber maintains an independent read position in the task’s output buffer. If a client's channel becomes full, the server temporarily stops sending messages to that client's channel and does not advance their read index. Once space becomes available in the channel, the server resumes sending messages from where it left off. This ensures that all subscribers receive the complete output from the task, regardless of their consumption speed.
 
 Under normal operation, the stream will remain open until the process terminates. Mutexes will be used to protect shared data to avoid data races and potential deadlocks. In a production environment, a rate limiter would be used to throttle the frequency of messages sent, ensuring that bursts of output do not overwhelm the client or network.
 
@@ -306,8 +305,8 @@ enum JobStatus {
     JOB_STATUS_UNKNOWN = 0;
     // job is currently running
     JOB_STATUS_STARTED = 1;
-    // job was manually stopped by client
-    JOB_STATUS_STOPPED = 2;
+    // job was stopped via a signal
+    JOB_STATUS_SIGNALED = 2;
     // job completed and exited normally
     JOB_STATUS_EXITED_OK = 3;
     // job exited with a non-zero status and was not stopped
@@ -316,8 +315,8 @@ enum JobStatus {
 
 // StartTaskRequest contains the command and arguments to start a new task
 message StartTaskRequest {
-    // must be full path to the task to run e.g. "/bin/ls"
-    string task_path = 1;
+    // The command to execute, either a full path (e.g. "/bin/ls") or a binary available in the system's PATH.
+    string command = 1;
     // arguments to pass to the task e.g. ["-l", "-a"]
     repeated string args = 2;
 }
@@ -332,10 +331,7 @@ message StopTaskRequest {
     string task_id = 1;
 }
 
-// StopTaskResponse returns true if the stop task request was successful; false otherwise
-message StopTaskResponse {
-    bool success = 1;
-}
+message StopTaskResponse {}
 
 message TaskStatusRequest {
     // UUID v4 ID of the task generated by the server
@@ -351,10 +347,14 @@ message TaskStatusResponse {
     string process_id = 3;
     // job status tracks status of job
     JobStatus status = 4;
+    // type of signal used to kill process such as SIGTERM, SIGKILL;
+    string termination_signal = 5;
+    // user, system, oom, etc
+    string termination_source = 6;
     // Timestamp when the task started
-    google.protobuf.Timestamp start_time = 5;
+    google.protobuf.Timestamp start_time = 7;
     // Timestamp when the task ended; only set if task is not running
-    google.protobuf.Timestamp end_time = 6;
+    google.protobuf.Timestamp end_time = 8;
 }
 
 message StreamTaskOutputRequest {
