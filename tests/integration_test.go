@@ -96,7 +96,6 @@ func createTestClient(t *testing.T, userID string) pb.TaskManagerClient {
 	return pb.NewTaskManagerClient(conn)
 }
 
-// These tests the gRPC server returns unimplemented errors for now
 func TestIntegration_StartTask(t *testing.T) {
 	t.Parallel()
 
@@ -173,7 +172,6 @@ func TestIntegration_StopTask(t *testing.T) {
 	assert.Equal(t, codes.Unimplemented, sts.Code())
 }
 
-// These tests test the gRPC server returns canceled when the context is canceled
 func TestIntegration_StopTaskContextCanceled(t *testing.T) {
 	t.Parallel()
 
