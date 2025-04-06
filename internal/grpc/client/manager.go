@@ -3,39 +3,44 @@ package client
 import (
 	"context"
 	"fmt"
-	"io"
 	"time"
 
 	pb "github.com/mikewurtz/taskman/gen/proto"
-	
+	"google.golang.org/grpc"
 )
 
 // Manager wraps the gRPC client operations
 type Manager struct {
-	userID     string
-	serverAddr string
+	client     pb.TaskManagerClient
+	conn       *grpc.ClientConn
 }
 
-// NewManager creates a new task manager client
-func NewManager(userID, serverAddr string) *Manager {
-	return &Manager{
-		userID:     userID,
-		serverAddr: serverAddr,
+// NewManager sets up a new gRPC manager
+func NewManager(userID, serverAddr string) (*Manager, error) {
+	client, conn, err := NewClient(userID, serverAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
+
+	return &Manager{
+		client:     client,
+		conn:       conn,
+	}, nil
+}
+
+// Close closes the gRPC connection
+func (m *Manager) Close() error {
+	return m.conn.Close()
 }
 
 // StartTask starts a new task with the given command and arguments
 func (m *Manager) StartTask(command string, args []string) (string, error) {
-	client, conn, err := NewClient(m.userID, m.serverAddr)
-	if err != nil {
-		return "", fmt.Errorf("failed to create client: %w", err)
-	}
-	defer conn.Close()
-
+	// longer timeout as task may take longer to start. Generally should be much faster than
+	// 1 minute, but 1 minute is a safe upper bound
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
-	resp, err := client.StartTask(ctx, &pb.StartTaskRequest{
+	resp, err := m.client.StartTask(ctx, &pb.StartTaskRequest{
 		Command: command,
 		Args:    args,
 	})
@@ -47,69 +52,47 @@ func (m *Manager) StartTask(command string, args []string) (string, error) {
 
 // GetTaskStatus gets the status of a task by its ID
 func (m *Manager) GetTaskStatus(taskID string) error {
-	client, conn, err := NewClient(m.userID, m.serverAddr)
-	if err != nil {
-		return fmt.Errorf("failed to create client: %w", err)
-	}
-	defer conn.Close()
-
+	// shorter timeout as status should be quick
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	resp, err := client.GetTaskStatus(ctx, &pb.TaskStatusRequest{TaskId: taskID})
+	_, err := m.client.GetTaskStatus(ctx, &pb.TaskStatusRequest{TaskId: taskID})
 	if err != nil {
 		return fmt.Errorf("error getting task status: %w", err)
 	}
 
-	fmt.Printf("Task %s running: %v, process ID: %s, exit code: %d\n",
-		taskID, resp.Status, resp.ProcessId, resp.ExitCode)
+	// TODO handle task status ouput once implemented
 	return nil
 }
 
 // StreamTaskOutput streams the output of a task by its ID
 func (m *Manager) StreamTaskOutput(taskID string) error {
-	client, conn, err := NewClient(m.userID, m.serverAddr)
-	if err != nil {
-		return fmt.Errorf("failed to create client: %w", err)
-	}
-	defer conn.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	// context with no timeout because we want to stream indefinitely
+	// have a context.WithCancel for clean cancellation
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	stream, err := client.StreamTaskOutput(ctx, &pb.StreamTaskOutputRequest{TaskId: taskID})
+	stream, err := m.client.StreamTaskOutput(ctx, &pb.StreamTaskOutputRequest{TaskId: taskID})
 	if err != nil {
 		return fmt.Errorf("error starting output stream: %w", err)
 	}
 
-	for {
-		msg, err := stream.Recv()
-		if err == io.EOF {
-			fmt.Println("Stream closed by server.")
-			return nil
-		}
-		if err != nil {
-			if ctx.Err() != nil {
-				return nil
-			}
-			return fmt.Errorf("error receiving task output: %w", err)
-		}
-		fmt.Println(msg.Output)
+	// TODO handle output stream once implemented
+	_, err = stream.Recv()
+	if err != nil {
+		return fmt.Errorf("error receiving from stream: %w", err)
 	}
+
+	return nil
 }
 
 // StopTask stops a task by its ID
 func (m *Manager) StopTask(taskID string) error {
-	client, conn, err := NewClient(m.userID, m.serverAddr)
-	if err != nil {
-		return fmt.Errorf("failed to create client: %w", err)
-	}
-	defer conn.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	// 10 second timeout for stopping a task should be a high enough upper bound
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, err = client.StopTask(ctx, &pb.StopTaskRequest{TaskId: taskID})
+	_, err := m.client.StopTask(ctx, &pb.StopTaskRequest{TaskId: taskID})
 	if err != nil {
 		return fmt.Errorf("error stopping task: %w", err)
 	}

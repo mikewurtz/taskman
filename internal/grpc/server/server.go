@@ -2,11 +2,9 @@ package server
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"log"
 	"net"
-	"os"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -29,14 +27,9 @@ func NewServer(serverAddr string) (*Server, error) {
 		return nil, fmt.Errorf("failed to load server key pair: %w", err)
 	}
 
-	caFile, err := os.ReadFile(basegrpc.CaCertPath)
+	caPool, err := basegrpc.LoadCACertPool()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read CA certificate: %w", err)
-	}
-
-	caPool := x509.NewCertPool()
-	if ok := caPool.AppendCertsFromPEM(caFile); !ok {
-		return nil, fmt.Errorf("failed to append CA certificate")
+		return nil, fmt.Errorf("failed to load CA certificate: %w", err)
 	}
 
 	// Since we are using TLS v1.3 we do not need to specify cipher suites
@@ -74,4 +67,9 @@ func NewServer(serverAddr string) (*Server, error) {
 func (s *Server) Start() error {
 	log.Printf("Server listening on %v", s.listener.Addr())
 	return s.grpcServer.Serve(s.listener)
+}
+
+func (s *Server) Stop() {
+	s.grpcServer.GracefulStop()
+	s.listener.Close()
 }

@@ -25,16 +25,26 @@ Options:
       The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
       Display help information for the get-status command.`,
-	Example: `$ taskman get-status a7da14c7-b47a-4535-a263-5bb26e503002 --user-id client001`,
+	Example:      `$ taskman --user-id client001 get-status a7da14c7-b47a-4535-a263-5bb26e503002`,
 	Args:         cobra.ExactArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if userID == "" {
-			cmd.Usage()
-			return fmt.Errorf("--user-id is required")
-		}
+
 		taskID := args[0]
-		manager := client.NewManager(userID, serverAddr)
+		if taskID == "" {
+			err := cmd.Usage()
+			if err != nil {
+				return fmt.Errorf("failed to display usage: %w", err)
+			}
+			return fmt.Errorf("task ID is required")
+		}
+
+		manager, err := client.NewManager(userID, serverAddr)
+		if err != nil {
+			return fmt.Errorf("failed to create task manager: %w", err)
+		}
+		defer manager.Close()
+
 		return manager.GetTaskStatus(taskID)
 	},
 }

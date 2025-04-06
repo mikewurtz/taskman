@@ -1,6 +1,9 @@
 package commands
 
 import (
+	"fmt"
+	"log"
+
 	"github.com/spf13/cobra"
 )
 
@@ -16,7 +19,16 @@ var RootCmd = &cobra.Command{
 	Short: "Taskman is a client for managing tasks via a gRPC server",
 	Long: `A CLI tool to start, check the status, stream output, and stop tasks executed by a remote gRPC server.
 This client connects to a taskman-server instance over a secure mTLS connection.`,
-	Example: `$ taskman start --user-id client001 --server-address localhost50051 -- /bin/ls /myFolder`,
+	Example: `  $ taskman --user-id client001 start -- /bin/ls /myFolder
+  $ taskman --user-id client001 --server-address localhost50051 get-status 123e4567-e89b-12d3-a456-426614174000
+  $ taskman --user-id client001 --server-address localhost50051 stream 123e4567-e89b-12d3-a456-426614174000
+  $ taskman --user-id client001 --server-address localhost50053 stop 123e4567-e89b-12d3-a456-426614174000`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if userID == "" {
+			return fmt.Errorf("--user-id is required")
+		}
+		return nil
+	},
 }
 
 func init() {
@@ -26,7 +38,10 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&serverAddr,
 		"server-address", "localhost:50051", "The gRPC server address to connect to.Defaults to localhost:50051 if not set.")
 
-	RootCmd.MarkPersistentFlagRequired("user-id")
+	err := RootCmd.MarkPersistentFlagRequired("user-id")
+	if err != nil {
+		log.Fatalf("failed to mark --user-id as required: %v", err)
+	}
 
 	RootCmd.AddCommand(startCmd)
 	RootCmd.AddCommand(statusCmd)

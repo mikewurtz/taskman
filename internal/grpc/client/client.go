@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"os"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -20,7 +19,7 @@ func NewClient(userID string, serverAddr string) (pb.TaskManagerClient, *grpc.Cl
 		return nil, nil, fmt.Errorf("loading client cert: %w", err)
 	}
 
-	caPool, err := loadCACert()
+	caPool, err := basegrpc.LoadCACertPool()
 	if err != nil {
 		return nil, nil, fmt.Errorf("loading CA cert: %w", err)
 	}
@@ -37,19 +36,6 @@ func loadClientCert(userID string) (tls.Certificate, error) {
 	certFile := fmt.Sprintf("certs/%s.crt", userID)
 	keyFile := fmt.Sprintf("certs/%s.key", userID)
 	return tls.LoadX509KeyPair(certFile, keyFile)
-}
-
-func loadCACert() (*x509.CertPool, error) {
-	caCert, err := os.ReadFile(basegrpc.CaCertPath)
-	if err != nil {
-		return nil, err
-	}
-
-	pool := x509.NewCertPool()
-	if !pool.AppendCertsFromPEM(caCert) {
-		return nil, fmt.Errorf("failed to append CA certificate")
-	}
-	return pool, nil
 }
 
 func createConnection(addr string, cert tls.Certificate, caPool *x509.CertPool) (*grpc.ClientConn, error) {

@@ -31,10 +31,6 @@ Options:
 	Args:         cobra.MinimumNArgs(1),
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if userID == "" {
-			cmd.Usage()
-			return fmt.Errorf("--user-id is required")
-		}
 
 		command := args[0]
 		var cmdArgs []string
@@ -42,7 +38,12 @@ Options:
 			cmdArgs = args[1:]
 		}
 
-		manager := client.NewManager(userID, serverAddr)
+		manager, err := client.NewManager(userID, serverAddr)
+		if err != nil {
+			return fmt.Errorf("failed to create task manager: %w", err)
+		}
+		defer manager.Close()
+
 		taskID, err := manager.StartTask(command, cmdArgs)
 		if err != nil {
 			return fmt.Errorf("failed to start task: %w", err)
