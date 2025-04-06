@@ -316,7 +316,7 @@ type TaskStatusResponse struct {
 	// Exit code of the task; only set if task is not running
 	ExitCode *int32 `protobuf:"varint,2,opt,name=exit_code,json=exitCode,proto3,oneof" json:"exit_code,omitempty"`
 	// PID of the process picked by the server
-	ProcessId string `protobuf:"bytes,3,opt,name=process_id,json=processId,proto3" json:"process_id,omitempty"`
+	ProcessId int32 `protobuf:"varint,3,opt,name=process_id,json=processId,proto3" json:"process_id,omitempty"`
 	// job status tracks status of job
 	Status JobStatus `protobuf:"varint,4,opt,name=status,proto3,enum=task_manager.JobStatus" json:"status,omitempty"`
 	// type of signal used to kill process such as SIGTERM, SIGKILL;
@@ -375,11 +375,11 @@ func (x *TaskStatusResponse) GetExitCode() int32 {
 	return 0
 }
 
-func (x *TaskStatusResponse) GetProcessId() string {
+func (x *TaskStatusResponse) GetProcessId() int32 {
 	if x != nil {
 		return x.ProcessId
 	}
-	return ""
+	return 0
 }
 
 func (x *TaskStatusResponse) GetStatus() JobStatus {
@@ -527,7 +527,7 @@ const file_proto_task_proto_rawDesc = "" +
 	"\atask_id\x18\x01 \x01(\tR\x06taskId\x12 \n" +
 	"\texit_code\x18\x02 \x01(\x05H\x00R\bexitCode\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"process_id\x18\x03 \x01(\tR\tprocessId\x12/\n" +
+	"process_id\x18\x03 \x01(\x05R\tprocessId\x12/\n" +
 	"\x06status\x18\x04 \x01(\x0e2\x17.task_manager.JobStatusR\x06status\x12-\n" +
 	"\x12termination_signal\x18\x05 \x01(\tR\x11terminationSignal\x12-\n" +
 	"\x12termination_source\x18\x06 \x01(\tR\x11terminationSource\x129\n" +

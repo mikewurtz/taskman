@@ -56,7 +56,7 @@ message TaskStatusResponse {
     // Exit code of the task; only set if task is not running
     optional int32 exit_code = 2;
     // PID of the process picked by the server
-    string process_id = 3;
+    int32 process_id = 3;
     // job status tracks status of job
     JobStatus status = 4;
     // type of signal used to kill process such as SIGTERM, SIGKILL;
