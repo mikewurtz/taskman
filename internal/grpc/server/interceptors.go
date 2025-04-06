@@ -68,7 +68,6 @@ func getClientCN(ctx context.Context) (string, error) {
 			if len(tlsInfo.State.PeerCertificates) > 0 {
 				clientCert := tlsInfo.State.PeerCertificates[0]
 				commonName = clientCert.Subject.CommonName
-				log.Printf("Client CN: %s", commonName)
 			}
 		}
 	}

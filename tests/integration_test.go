@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -17,8 +16,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 
+	"github.com/mikewurtz/taskman/certs"
 	pb "github.com/mikewurtz/taskman/gen/proto"
-	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
 	"github.com/mikewurtz/taskman/internal/grpc/server"
 )
 
@@ -67,27 +66,34 @@ func createTestClient(t *testing.T, userID string) pb.TaskManagerClient {
 		userID = testUserID
 	}
 
-	cert, err := tls.LoadX509KeyPair(
-		filepath.Join("certs", fmt.Sprintf("%s.crt", userID)),
-		filepath.Join("certs", fmt.Sprintf("%s.key", userID)),
-	)
-	require.NoError(t, err)
+	certPath := fmt.Sprintf("%s.crt", userID)
+	keyPath := fmt.Sprintf("%s.key", userID)
 
-	caCert, err := os.ReadFile(basegrpc.CaCertPath)
-	require.NoError(t, err)
+	certPEM, err := certs.CertFiles.ReadFile(certPath)
+	require.NoError(t, err, "failed to read embedded client cert")
+
+	keyPEM, err := certs.CertFiles.ReadFile(keyPath)
+	require.NoError(t, err, "failed to read embedded client key")
+
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	require.NoError(t, err, "failed to parse key pair")
+
+	caCert, err := certs.CertFiles.ReadFile("ca.crt")
+	require.NoError(t, err, "failed to read embedded CA cert")
 
 	caPool := x509.NewCertPool()
-	require.True(t, caPool.AppendCertsFromPEM(caCert))
+	require.True(t, caPool.AppendCertsFromPEM(caCert), "failed to append CA cert to pool")
 
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caPool,
 	}
 
-	conn, err := grpc.NewClient(testServerAddr,
+	conn, err := grpc.NewClient(
+		testServerAddr,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 	)
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to create gRPC client")
 
 	t.Cleanup(func() {
 		conn.Close()

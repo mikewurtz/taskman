@@ -3,13 +3,14 @@ package grpc
 import (
 	"crypto/x509"
 	"fmt"
-	"os"
+
+	"github.com/mikewurtz/taskman/certs"
 )
 
 func LoadCACertPool() (*x509.CertPool, error) {
-	caCert, err := os.ReadFile(CaCertPath)
+	caCert, err := certs.CertFiles.ReadFile("ca.crt")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read CA cert: %w", err)
 	}
 
 	pool := x509.NewCertPool()

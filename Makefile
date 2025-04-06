@@ -29,7 +29,7 @@ generate-proto:
 		$(PROTO_FILE)
 
 test:
-	go test -race -v ./...
+	CGO_ENABLED=1 go test -v -race -cover ./...
 
 clean:
 	rm -rf $(BINDIR) $(GEN_DIR)
