@@ -28,7 +28,6 @@ func ExtractClientCNInterceptor(
 	}
 	ctxWithCN := context.WithValue(ctx, basegrpc.ClientCNKey, commonName)
 	respObj, err := handler(ctxWithCN, req)
-	// TODO: we will want to map the error to a specific gRPC error code
 	return respObj, err
 }
 
@@ -53,7 +52,6 @@ func ExtractClientCNStreamInterceptor(
 		ctx:          ctxWithCN,
 	}
 	err = handler(srv, wrappedStream)
-	// TODO: we will want to map the error to a specific gRPC error code
 	return err
 }
 

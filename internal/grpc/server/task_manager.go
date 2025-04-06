@@ -2,14 +2,12 @@ package server
 
 import (
 	"context"
-	"log"
 
 	pb "github.com/mikewurtz/taskman/gen/proto"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
 )
 
 func NewTaskManagerServer() *taskManagerServer {
@@ -27,25 +25,20 @@ type taskManagerServer struct {
 
 // StartTask
 func (s *taskManagerServer) StartTask(ctx context.Context, req *pb.StartTaskRequest) (*pb.StartTaskResponse, error) {
-	log.Printf("Common Name in grpc server function: %s", ctx.Value(basegrpc.ClientCNKey))
 	return nil, status.Error(codes.Unimplemented, "StartTask not implemented")
 }
 
 // StopTask
 func (s *taskManagerServer) StopTask(ctx context.Context, req *pb.StopTaskRequest) (*pb.StopTaskResponse, error) {
-	log.Printf("Common Name in grpc server function: %s", ctx.Value(basegrpc.ClientCNKey))
 	return nil, status.Errorf(codes.Unimplemented, "StopTask not implemented")
 }
 
 // GetTaskStatus
 func (s *taskManagerServer) GetTaskStatus(ctx context.Context, req *pb.TaskStatusRequest) (*pb.TaskStatusResponse, error) {
-	log.Printf("Common Name in grpc server function: %s", ctx.Value(basegrpc.ClientCNKey))
 	return nil, status.Errorf(codes.Unimplemented, "GetTaskStatus not implemented")
 }
 
 // StreamTaskOutput
 func (s *taskManagerServer) StreamTaskOutput(req *pb.StreamTaskOutputRequest, stream pb.TaskManager_StreamTaskOutputServer) error {
-	ctx := stream.Context()
-	log.Printf("Common Name in grpc server function: %s", ctx.Value(basegrpc.ClientCNKey))
 	return status.Errorf(codes.Unimplemented, "StreamTaskOutput not implemented")
 }
