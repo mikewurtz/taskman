@@ -1,8 +1,10 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"text/tabwriter"
 	"time"
 
 	pb "github.com/mikewurtz/taskman/gen/proto"
@@ -11,8 +13,8 @@ import (
 
 // Manager wraps the gRPC client operations
 type Manager struct {
-	client     pb.TaskManagerClient
-	conn       *grpc.ClientConn
+	client pb.TaskManagerClient
+	conn   *grpc.ClientConn
 }
 
 // NewManager sets up a new gRPC manager
@@ -23,8 +25,8 @@ func NewManager(userID, serverAddr string) (*Manager, error) {
 	}
 
 	return &Manager{
-		client:     client,
-		conn:       conn,
+		client: client,
+		conn:   conn,
 	}, nil
 }
 
@@ -50,19 +52,82 @@ func (m *Manager) StartTask(command string, args []string) (string, error) {
 	return resp.TaskId, nil
 }
 
+type TaskStatus struct {
+	TaskID            string
+	Status            string
+	StartTime         time.Time
+	EndTime           time.Time
+	ExitCode          *int32
+	ProcessID         int32
+	TerminationSignal string
+	TerminationSource string
+}
+
+func (t *TaskStatus) String() string {
+	var buf bytes.Buffer
+	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "TASK ID\tSTART TIME\tPID\tSTATUS\tEXIT CODE\tSIGNAL\tSOURCE\tEND TIME")
+	fmt.Fprintln(w, "-------\t----------\t---\t------\t---------\t------\t------\t--------")
+
+	startTime := t.StartTime.Format("2006-01-02 15:04:05")
+
+	endTime := "-"
+	if !t.EndTime.IsZero() {
+		endTime = t.EndTime.Format("2006-01-02 15:04:05")
+	}
+
+	exitStr := "-"
+	if t.ExitCode != nil {
+		exitStr = fmt.Sprintf("%d", *t.ExitCode)
+	}
+
+	signal := t.TerminationSignal
+	if signal == "" {
+		signal = "-"
+	}
+
+	source := t.TerminationSource
+	if source == "" {
+		source = "-"
+	}
+
+	fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
+		t.TaskID,
+		startTime,
+		t.ProcessID,
+		t.Status,
+		exitStr,
+		signal,
+		source,
+		endTime,
+	)
+	w.Flush()
+	return buf.String()
+}
+
 // GetTaskStatus gets the status of a task by its ID
-func (m *Manager) GetTaskStatus(taskID string) error {
+func (m *Manager) GetTaskStatus(taskID string) (*TaskStatus, error) {
 	// shorter timeout as status should be quick
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, err := m.client.GetTaskStatus(ctx, &pb.TaskStatusRequest{TaskId: taskID})
+	pbStatus, err := m.client.GetTaskStatus(ctx, &pb.TaskStatusRequest{TaskId: taskID})
 	if err != nil {
-		return fmt.Errorf("error getting task status: %w", err)
+		return nil, fmt.Errorf("error getting task status: %w", err)
 	}
 
-	// TODO handle task status ouput once implemented
-	return nil
+	returnStatus := &TaskStatus{
+		TaskID:            pbStatus.TaskId,
+		Status:            pbStatus.Status.String(),
+		StartTime:         pbStatus.StartTime.AsTime(),
+		EndTime:           pbStatus.EndTime.AsTime(),
+		ExitCode:          pbStatus.ExitCode,
+		ProcessID:         pbStatus.ProcessId,
+		TerminationSignal: pbStatus.TerminationSignal,
+		TerminationSource: pbStatus.TerminationSource,
+	}
+
+	return returnStatus, nil
 }
 
 // StreamTaskOutput streams the output of a task by its ID
@@ -92,6 +157,7 @@ func (m *Manager) StopTask(taskID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// StopTask response is an empty object
 	_, err := m.client.StopTask(ctx, &pb.StopTaskRequest{TaskId: taskID})
 	if err != nil {
 		return fmt.Errorf("error stopping task: %w", err)

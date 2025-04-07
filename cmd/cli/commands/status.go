@@ -45,6 +45,13 @@ Options:
 		}
 		defer manager.Close()
 
-		return manager.GetTaskStatus(taskID)
+		status, err := manager.GetTaskStatus(taskID)
+		if err != nil {
+			return fmt.Errorf("failed to get task status: %w", err)
+		}
+		
+		fmt.Println(status.String())
+
+		return nil
 	},
 }

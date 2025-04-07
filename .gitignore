@@ -1,3 +1,6 @@
 
 # ignore binaries
 /bin
+
+# ignore vs code
+.vscode
