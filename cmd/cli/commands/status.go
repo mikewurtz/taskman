@@ -12,8 +12,9 @@ import (
 var statusCmd = &cobra.Command{
 	Use:   `get-status <task-id> --user-id <user-id> [--server-address <host:port>] [--help]`,
 	Short: "Get the status of a task by its task ID",
-	Long: `Retrieve the status of a task using its unique task ID. The command displays details such as whether 
-the task is running, start time, process ID, and exit code and end time if the process has ended.
+	Long: `Retrieve the status of a task using its unique task ID. The command displays details such as 
+the task status, start time, process ID. If the task has ended, this command will display end time, exit code,
+termination signal and termination source if applicable.
 
 Arguments:
   <task-id>             

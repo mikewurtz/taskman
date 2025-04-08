@@ -34,6 +34,13 @@ Options:
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		command := args[0]
+		if command == "" {
+			err := cmd.Usage()
+			if err != nil {
+				return fmt.Errorf("failed to display usage: %w", err)
+			}
+			return fmt.Errorf("command is required")
+		}
 		var cmdArgs []string
 		if len(args) > 1 {
 			cmdArgs = args[1:]
