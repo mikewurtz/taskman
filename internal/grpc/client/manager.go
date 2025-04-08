@@ -7,8 +7,10 @@ import (
 	"text/tabwriter"
 	"time"
 
-	pb "github.com/mikewurtz/taskman/gen/proto"
 	"google.golang.org/grpc"
+
+	pb "github.com/mikewurtz/taskman/gen/proto"
+	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
 )
 
 // Manager wraps the gRPC client operations
@@ -37,9 +39,8 @@ func (m *Manager) Close() error {
 
 // StartTask starts a new task with the given command and arguments
 func (m *Manager) StartTask(command string, args []string) (string, error) {
-	// longer timeout as task may take longer to start. Generally should be much faster than
-	// 1 minute, but 1 minute is a safe upper bound
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+
+	ctx, cancel := context.WithTimeout(context.Background(), basegrpc.StartTaskTimeout)
 	defer cancel()
 
 	resp, err := m.client.StartTask(ctx, &pb.StartTaskRequest{
@@ -153,11 +154,9 @@ func (m *Manager) StreamTaskOutput(taskID string) error {
 
 // StopTask stops a task by its ID
 func (m *Manager) StopTask(taskID string) error {
-	// 10 second timeout for stopping a task should be a high enough upper bound
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), basegrpc.StopTaskTimeout)
 	defer cancel()
 
-	// StopTask response is an empty object
 	_, err := m.client.StopTask(ctx, &pb.StopTaskRequest{TaskId: taskID})
 	if err != nil {
 		return fmt.Errorf("error stopping task: %w", err)

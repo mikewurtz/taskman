@@ -20,9 +20,9 @@ var RootCmd = &cobra.Command{
 	Long: `A CLI tool to start, check the status, stream output, and stop tasks executed by a remote gRPC server.
 This client connects to a taskman-server instance over a secure mTLS connection.`,
 	Example: `  $ taskman --user-id client001 start -- /bin/ls /myFolder
-  $ taskman --user-id client001 --server-address localhost50051 get-status 123e4567-e89b-12d3-a456-426614174000
-  $ taskman --user-id client001 --server-address localhost50051 stream 123e4567-e89b-12d3-a456-426614174000
-  $ taskman --user-id client001 --server-address localhost50053 stop 123e4567-e89b-12d3-a456-426614174000`,
+  $ taskman --user-id client001 --server-address localhost:50051 get-status 123e4567-e89b-12d3-a456-426614174000
+  $ taskman --user-id client001 --server-address localhost:50051 stream 123e4567-e89b-12d3-a456-426614174000
+  $ taskman --user-id client001 --server-address localhost:50053 stop 123e4567-e89b-12d3-a456-426614174000`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if userID == "" {
 			return fmt.Errorf("--user-id is required")

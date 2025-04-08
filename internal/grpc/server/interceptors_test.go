@@ -21,11 +21,11 @@ func TestExtractClientCNInterceptor(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		desc        string
-		setUpTestCtx    func() context.Context
-		wantCN      string
-		wantCalled  bool
-		wantErrCode codes.Code
+		desc         string
+		setUpTestCtx func() context.Context
+		wantCN       string
+		wantCalled   bool
+		wantErrCode  codes.Code
 	}{
 		{
 			desc: "with valid client cert",
@@ -110,11 +110,11 @@ func TestExtractClientCNStreamInterceptor(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		desc        string
-		setUpTestCtx    func() context.Context
-		wantCN      string
-		wantCalled  bool
-		wantErrCode codes.Code
+		desc         string
+		setUpTestCtx func() context.Context
+		wantCN       string
+		wantCalled   bool
+		wantErrCode  codes.Code
 	}{
 		{
 			desc: "with valid client cert",

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -33,6 +34,13 @@ Options:
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		command := args[0]
+		if command == "" {
+			err := cmd.Usage()
+			if err != nil {
+				return fmt.Errorf("failed to display usage: %w", err)
+			}
+			return fmt.Errorf("command is required")
+		}
 		var cmdArgs []string
 		if len(args) > 1 {
 			cmdArgs = args[1:]
@@ -40,9 +48,13 @@ Options:
 
 		manager, err := client.NewManager(userID, serverAddr)
 		if err != nil {
-			return fmt.Errorf("failed to create task manager: %w", err)
+			return fmt.Errorf("failed to set up gRPC client: %w", err)
 		}
-		defer manager.Close()
+		defer func() {
+			if err := manager.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to close manager: %v\n", err)
+			}
+		}()
 
 		taskID, err := manager.StartTask(command, cmdArgs)
 		if err != nil {

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -41,9 +42,13 @@ Options:
 
 		manager, err := client.NewManager(userID, serverAddr)
 		if err != nil {
-			return fmt.Errorf("failed to create task manager: %w", err)
+			return fmt.Errorf("failed to set up gRPC client: %w", err)
 		}
-		defer manager.Close()
+		defer func() {
+			if err := manager.Close(); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to close manager: %v\n", err)
+			}
+		}()
 
 		return manager.StreamTaskOutput(taskID)
 	},

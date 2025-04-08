@@ -23,7 +23,7 @@ import (
 
 const (
 	testUserID     = "client001"
-	testServerAddr = "localhost:50051"
+	testServerAddr = "localhost:50055"
 	testTimeout    = 5 * time.Second
 )
 
@@ -52,6 +52,9 @@ func startTestServer() func() {
 		}
 	}()
 
+	// Add a small delay to give the server some time to be ready
+	// In a real integration test, we should be using a more reliable/robust mechanism
+	// like a health check endpoint to wait until the server is ready
 	time.Sleep(100 * time.Millisecond)
 
 	return func() {
@@ -93,10 +96,11 @@ func createTestClient(t *testing.T, userID string) pb.TaskManagerClient {
 		testServerAddr,
 		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
 	)
-	require.NoError(t, err, "failed to create gRPC client")
+	require.NoError(t, err, "failed to set up gRPC client")
 
 	t.Cleanup(func() {
-		conn.Close()
+		err := conn.Close()
+		require.NoError(t, err, "failed to clean up gRPC connectiont")
 	})
 
 	return pb.NewTaskManagerClient(conn)

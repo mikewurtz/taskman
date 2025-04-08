@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -23,16 +26,31 @@ over a secure mTLS connection.`,
 			return fmt.Errorf("failed to initialize server: %w", err)
 		}
 
-		if err := server.Start(); err != nil {
-			return fmt.Errorf("server failed: %w", err)
-		}
+		// Start the server in a goroutine so we can handle signals
+		go func() {
+			if err := server.Start(); err != nil {
+				log.Printf("server exited with error: %v", err)
+			}
+		}()
+
+		// Set up signal handling for SIGINT and SIGTERM
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+		log.Println("Taskman server is running. Press Ctrl+C to stop.")
+
+		<-sigCh
+		log.Println("Shutdown signal received. Stopping server...")
+
+		server.Stop()
+		log.Println("Server stopped cleanly.")
 		return nil
 	},
 }
 
 func init() {
 	rootCmd.Flags().StringVar(&serverAddr, "server-address", "localhost:50051",
-		"The gRPC server port to expose the server on. Defaults to localhost:50051 if not set.")
+		"The gRPC server address to expose the server on. Defaults to localhost:50051 if not set.")
 
 }
 
