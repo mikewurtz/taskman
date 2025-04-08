@@ -9,7 +9,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
-	"github.com/mikewurtz/taskman/certs"
 	pb "github.com/mikewurtz/taskman/gen/proto"
 	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
 )
@@ -23,19 +22,9 @@ type Server struct {
 // NewServer sets up the gRPC server and listener with mTLS authentication using TLS v1.3
 // Includes interceptors for injecting the client CN into the context for unary and stream calls
 func NewServer(serverAddr string) (*Server, error) {
-	certBytes, err := certs.CertFiles.ReadFile("server.crt")
+	cert, err := basegrpc.LoadTLSCert(basegrpc.ServerCertName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read embedded server cert: %w", err)
-	}
-
-	keyBytes, err := certs.CertFiles.ReadFile("server.key")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read embedded server key: %w", err)
-	}
-
-	cert, err := tls.X509KeyPair(certBytes, keyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse embedded server key pair: %w", err)
+		return nil, fmt.Errorf("loading server cert: %w", err)
 	}
 
 	caPool, err := basegrpc.LoadCACertPool()

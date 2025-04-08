@@ -11,8 +11,8 @@ import (
 
 // Manager wraps the gRPC client operations
 type Manager struct {
-	client     pb.TaskManagerClient
-	conn       *grpc.ClientConn
+	client pb.TaskManagerClient
+	conn   *grpc.ClientConn
 }
 
 // NewManager sets up a new gRPC manager
@@ -23,8 +23,8 @@ func NewManager(userID, serverAddr string) (*Manager, error) {
 	}
 
 	return &Manager{
-		client:     client,
-		conn:       conn,
+		client: client,
+		conn:   conn,
 	}, nil
 }
 

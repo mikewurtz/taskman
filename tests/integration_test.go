@@ -52,6 +52,9 @@ func startTestServer() func() {
 		}
 	}()
 
+	// Add a small delay to give the server some time to be ready
+	// In a real integration test, we should be using a more reliable/robust mechanism
+	// like a health check endpoint to wait until the server is ready
 	time.Sleep(100 * time.Millisecond)
 
 	return func() {
