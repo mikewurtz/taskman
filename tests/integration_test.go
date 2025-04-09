@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,16 +23,16 @@ import (
 )
 
 const (
-	testUserID     = "client001"
-	testServerAddr = "localhost:50055"
-	testTimeout    = 5 * time.Second
+	testUserID = "client001"
 )
 
-var stopServer func()
+var (
+	stopServer     func()
+	testServerAddr string
+	once           sync.Once
+)
 
 func TestMain(m *testing.M) {
-	stopServer = startTestServer()
-
 	code := m.Run()
 
 	if stopServer != nil {
@@ -40,26 +41,42 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func startTestServer() func() {
-	srv, err := server.NewServer(testServerAddr)
-	if err != nil {
-		panic(fmt.Sprintf("failed to start test server: %v", err))
-	}
+// startTestServer starts the test server and returns a function to stop it
+// will only be called once
+func startTestServer(t *testing.T) {
+	once.Do(func() {
+		fmt.Println("starting test server")
+		srv, err := server.NewServer("localhost:0")
+		require.NoError(t, err, "failed to create test server")
 
-	go func() {
-		if err := srv.Start(); err != nil {
-			fmt.Printf("Test server error: %v\n", err)
+		go func() {
+			if err := srv.Start(); err != nil {
+				fmt.Printf("Test server error: %v\n", err)
+			}
+		}()
+
+		testServerAddr = srv.Addr()
+		// wait for the server to be ready to handle requests, 2 seconds should be plenty
+		require.Eventually(t, func() bool {
+			client := createTestClient(t, testUserID)
+			// set context timeout to 500ms so we can still retry a few times if it fails
+			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+			defer cancel()
+
+			// try a get task status, if it returns codes.Unimplemented then the server is ready
+			_, err := client.GetTaskStatus(ctx, &pb.TaskStatusRequest{
+				TaskId: "375b0522-72ed-4f3f-88d0-01d360d06b8c",
+			})
+
+			sts, ok := status.FromError(err)
+			// TODO: this will need to be updated once we have a real implementation
+			return ok && sts.Code() == codes.Unimplemented
+		}, 2*time.Second, 10*time.Millisecond, "gRPC server did not start in time")
+
+		stopServer = func() {
+			srv.Stop()
 		}
-	}()
-
-	// Add a small delay to give the server some time to be ready
-	// In a real integration test, we should be using a more reliable/robust mechanism
-	// like a health check endpoint to wait until the server is ready
-	time.Sleep(100 * time.Millisecond)
-
-	return func() {
-		srv.Stop()
-	}
+	})
 }
 
 func createTestClient(t *testing.T, userID string) pb.TaskManagerClient {
@@ -108,6 +125,7 @@ func createTestClient(t *testing.T, userID string) pb.TaskManagerClient {
 
 func TestIntegration_StartTask(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -127,6 +145,7 @@ func TestIntegration_StartTask(t *testing.T) {
 
 func TestIntegration_GetTaskStatus(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -145,6 +164,7 @@ func TestIntegration_GetTaskStatus(t *testing.T) {
 
 func TestIntegration_StreamTaskOutput(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -166,6 +186,7 @@ func TestIntegration_StreamTaskOutput(t *testing.T) {
 
 func TestIntegration_StopTask(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -184,6 +205,7 @@ func TestIntegration_StopTask(t *testing.T) {
 
 func TestIntegration_StopTaskContextCanceled(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -202,6 +224,7 @@ func TestIntegration_StopTaskContextCanceled(t *testing.T) {
 
 func TestIntegration_StartTaskContextCanceled(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -221,6 +244,7 @@ func TestIntegration_StartTaskContextCanceled(t *testing.T) {
 
 func TestIntegration_GetTaskStatusContextCanceled(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -239,6 +263,7 @@ func TestIntegration_GetTaskStatusContextCanceled(t *testing.T) {
 
 func TestIntegration_StreamTaskOutputContextCanceled(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -258,6 +283,7 @@ func TestIntegration_StreamTaskOutputContextCanceled(t *testing.T) {
 
 func TestIntegration_GetTaskStatusContextTimeout(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -278,6 +304,7 @@ func TestIntegration_GetTaskStatusContextTimeout(t *testing.T) {
 // tests a valid client cert but has no common name for unary calls (stop, start, get-status)
 func TestIntegration_NoCNInKeyUnary(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client-no-cn")
 
@@ -297,6 +324,7 @@ func TestIntegration_NoCNInKeyUnary(t *testing.T) {
 // tests a valid client cert but has no common name for stream call
 func TestIntegration_NoCNInKeyStream(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client-no-cn")
 
@@ -320,6 +348,7 @@ func TestIntegration_NoCNInKeyStream(t *testing.T) {
 // tests a key that is self signed and not by a CA
 func TestIntegration_SelfSignedCertNoCA(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "badclient-self-signed")
 
@@ -339,6 +368,7 @@ func TestIntegration_SelfSignedCertNoCA(t *testing.T) {
 // tests a weak key that is RSA 512
 func TestIntegration_WeakKey512(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "weak")
 

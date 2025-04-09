@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"context"
 	"fmt"
-	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -28,14 +30,15 @@ Options:
         The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
         Display help information for the start command.`,
-	Example:      `$ taskman start --user-id client001 -- ls /myFolder`,
-	Args:         cobra.MinimumNArgs(1),
-	SilenceUsage: true,
+	Example:       `$ taskman start --user-id client001 -- ls /myFolder`,
+	Args:          cobra.MinimumNArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		command := args[0]
 		if command == "" {
-			if err := cmd.Usage();  err != nil {
+			if err := cmd.Usage(); err != nil {
 				return fmt.Errorf("failed to display usage: %w", err)
 			}
 			return fmt.Errorf("command is required")
@@ -50,19 +53,26 @@ Options:
 			return fmt.Errorf("failed to set up gRPC client: %w", err)
 		}
 		defer func() {
-			if err := manager.Close(); err != nil {
-				fmt.Fprintf(os.Stderr, "failed to close manager: %v\n", err)
+			if closeErr := manager.Close(); closeErr != nil {
+				if _, logErr := fmt.Fprintf(cmd.OutOrStderr(), "failed to close manager: %v\n", closeErr); logErr != nil {
+					// Fallback to fmt.Printf output if logging to cmd.OutOrStderr fails.
+					fmt.Printf("failed to log close error: %v\n", logErr)
+				}
 			}
 		}()
 
-		taskID, err := manager.StartTask(command, cmdArgs)
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
+
+		taskID, err := manager.StartTask(ctx, command, cmdArgs)
 		if err != nil {
 			return fmt.Errorf("failed to start task: %w", err)
 		}
 
-		fmt.Println("TASK ID")
-		fmt.Println("-------")
-		fmt.Println(taskID)
+		output := fmt.Sprintf("TASK ID\n-------\n%s\n", taskID)
+		if _, err = fmt.Fprint(cmd.OutOrStdout(), output); err != nil {
+			return fmt.Errorf("failed to print output: %w", err)
+		}
 		return nil
 	},
 }

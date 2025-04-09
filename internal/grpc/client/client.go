@@ -28,7 +28,6 @@ func NewClient(userID string, serverAddr string) (pb.TaskManagerClient, *grpc.Cl
 	if err != nil {
 		return nil, nil, fmt.Errorf("creating connection: %w", err)
 	}
-
 	return pb.NewTaskManagerClient(conn), conn, nil
 }
 
@@ -37,6 +36,5 @@ func createConnection(addr string, cert tls.Certificate, caPool *x509.CertPool) 
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      caPool,
 	}
-
 	return grpc.NewClient(addr, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 }

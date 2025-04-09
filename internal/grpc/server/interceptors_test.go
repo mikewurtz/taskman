@@ -17,6 +17,10 @@ import (
 	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
 )
 
+type fakeAuthInfo struct{}
+
+func (f fakeAuthInfo) AuthType() string { return "fake" }
+
 func TestExtractClientCNInterceptor(t *testing.T) {
 	t.Parallel()
 
@@ -61,6 +65,33 @@ func TestExtractClientCNInterceptor(t *testing.T) {
 			desc: "with peer info but no tls info",
 			setUpTestCtx: func() context.Context {
 				return peer.NewContext(context.Background(), &peer.Peer{})
+			},
+			wantCN:      "",
+			wantCalled:  false,
+			wantErrCode: codes.Unauthenticated,
+		},
+		{
+			desc: "with unknown auth info type",
+			setUpTestCtx: func() context.Context {
+				return peer.NewContext(context.Background(), &peer.Peer{
+					AuthInfo: fakeAuthInfo{},
+				})
+			},
+			wantCN:      "",
+			wantCalled:  false,
+			wantErrCode: codes.Unauthenticated,
+		},
+		{
+			desc: "with no peer certificates",
+			setUpTestCtx: func() context.Context {
+				tlsInfo := credentials.TLSInfo{
+					State: tls.ConnectionState{
+						PeerCertificates: []*x509.Certificate{},
+					},
+				}
+				return peer.NewContext(context.Background(), &peer.Peer{
+					AuthInfo: tlsInfo,
+				})
 			},
 			wantCN:      "",
 			wantCalled:  false,
@@ -150,6 +181,33 @@ func TestExtractClientCNStreamInterceptor(t *testing.T) {
 			desc: "with peer context but no tls info",
 			setUpTestCtx: func() context.Context {
 				return peer.NewContext(context.Background(), &peer.Peer{})
+			},
+			wantCN:      "",
+			wantCalled:  false,
+			wantErrCode: codes.Unauthenticated,
+		},
+		{
+			desc: "with unknown auth info type",
+			setUpTestCtx: func() context.Context {
+				return peer.NewContext(context.Background(), &peer.Peer{
+					AuthInfo: fakeAuthInfo{},
+				})
+			},
+			wantCN:      "",
+			wantCalled:  false,
+			wantErrCode: codes.Unauthenticated,
+		},
+		{
+			desc: "with no peer certificates",
+			setUpTestCtx: func() context.Context {
+				tlsInfo := credentials.TLSInfo{
+					State: tls.ConnectionState{
+						PeerCertificates: []*x509.Certificate{},
+					},
+				}
+				return peer.NewContext(context.Background(), &peer.Peer{
+					AuthInfo: tlsInfo,
+				})
 			},
 			wantCN:      "",
 			wantCalled:  false,
