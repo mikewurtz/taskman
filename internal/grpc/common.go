@@ -10,7 +10,7 @@ import (
 
 // LoadCACertPool loads the CA certificate pool from the embedded files
 func LoadCACertPool() (*x509.CertPool, error) {
-	caCert, err := certs.CertFiles.ReadFile(CACertFileName)
+	caCert, err := certs.CertFiles.ReadFile(certs.CACertFileName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read CA cert: %w", err)
 	}

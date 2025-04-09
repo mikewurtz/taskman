@@ -11,3 +11,12 @@ import (
 
 //go:embed *.crt *.key
 var CertFiles embed.FS
+
+// In a real environment these would be set via environment variables and not be hardcoded
+// we would want to use a config package to manage these values and could load these in from env vars and utilize
+// https://github.com/kelseyhightower/envconfig
+
+const (
+	ServerCertName = "server"
+	CACertFileName = "ca.crt"
+)

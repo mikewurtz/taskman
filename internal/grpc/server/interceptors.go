@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -58,20 +57,24 @@ func ExtractClientCNStreamInterceptor(
 func getClientCN(ctx context.Context) (string, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
-		log.Println("No peer found in context")
-		return "", fmt.Errorf("no peer found in context")
+		return "", fmt.Errorf("peer not found in context")
 	}
 
-	var commonName string
-	if p.AuthInfo != nil {
-		if tlsInfo, ok := p.AuthInfo.(credentials.TLSInfo); ok {
-			if len(tlsInfo.State.PeerCertificates) > 0 {
-				clientCert := tlsInfo.State.PeerCertificates[0]
-				commonName = clientCert.Subject.CommonName
-			}
-		}
+	authInfo := p.AuthInfo
+	if authInfo == nil {
+		return "", fmt.Errorf("auth info missing from peer context")
 	}
-	return commonName, nil
+
+	tlsInfo, ok := authInfo.(credentials.TLSInfo)
+	if !ok {
+		return "", fmt.Errorf("unexpected auth info type: %T", authInfo)
+	}
+
+	if len(tlsInfo.State.PeerCertificates) == 0 {
+		return "", fmt.Errorf("no peer certificates provided by client")
+	}
+
+	return tlsInfo.State.PeerCertificates[0].Subject.CommonName, nil
 }
 
 // wrappedServerStream wraps grpc.ServerStream to replace the context

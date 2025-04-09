@@ -10,7 +10,6 @@ import (
 	"google.golang.org/grpc"
 
 	pb "github.com/mikewurtz/taskman/gen/proto"
-	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
 )
 
 // Manager wraps the gRPC client operations
@@ -38,11 +37,7 @@ func (m *Manager) Close() error {
 }
 
 // StartTask starts a new task with the given command and arguments
-func (m *Manager) StartTask(command string, args []string) (string, error) {
-
-	ctx, cancel := context.WithTimeout(context.Background(), basegrpc.StartTaskTimeout)
-	defer cancel()
-
+func (m *Manager) StartTask(ctx context.Context, command string, args []string) (string, error) {
 	resp, err := m.client.StartTask(ctx, &pb.StartTaskRequest{
 		Command: command,
 		Args:    args,
@@ -107,11 +102,7 @@ func (t *TaskStatus) String() string {
 }
 
 // GetTaskStatus gets the status of a task by its ID
-func (m *Manager) GetTaskStatus(taskID string) (*TaskStatus, error) {
-	// shorter timeout as status should be quick
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
+func (m *Manager) GetTaskStatus(ctx context.Context, taskID string) (*TaskStatus, error) {
 	pbStatus, err := m.client.GetTaskStatus(ctx, &pb.TaskStatusRequest{TaskId: taskID})
 	if err != nil {
 		return nil, fmt.Errorf("error getting task status: %w", err)
@@ -132,12 +123,7 @@ func (m *Manager) GetTaskStatus(taskID string) (*TaskStatus, error) {
 }
 
 // StreamTaskOutput streams the output of a task by its ID
-func (m *Manager) StreamTaskOutput(taskID string) error {
-	// context with no timeout because we want to stream indefinitely
-	// have a context.WithCancel for clean cancellation
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
+func (m *Manager) StreamTaskOutput(ctx context.Context, taskID string) error {
 	stream, err := m.client.StreamTaskOutput(ctx, &pb.StreamTaskOutputRequest{TaskId: taskID})
 	if err != nil {
 		return fmt.Errorf("error starting output stream: %w", err)
@@ -153,10 +139,7 @@ func (m *Manager) StreamTaskOutput(taskID string) error {
 }
 
 // StopTask stops a task by its ID
-func (m *Manager) StopTask(taskID string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), basegrpc.StopTaskTimeout)
-	defer cancel()
-
+func (m *Manager) StopTask(ctx context.Context, taskID string) error {
 	_, err := m.client.StopTask(ctx, &pb.StopTaskRequest{TaskId: taskID})
 	if err != nil {
 		return fmt.Errorf("error stopping task: %w", err)

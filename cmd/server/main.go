@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -34,14 +35,14 @@ over a secure mTLS connection.`,
 		}()
 
 		// Set up signal handling for SIGINT and SIGTERM
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
 
 		log.Println("Taskman server is running. Press Ctrl+C to stop.")
 
-		<-sigCh
+		// Use ctx to block until a signal is received:
+		<-ctx.Done()
 		log.Println("Shutdown signal received. Stopping server...")
-
 		server.Stop()
 		log.Println("Server stopped cleanly.")
 		return nil
@@ -56,7 +57,7 @@ func init() {
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		os.Exit(1)
 	}
 }

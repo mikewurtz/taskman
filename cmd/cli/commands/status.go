@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"context"
 	"fmt"
-	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -27,15 +29,15 @@ Options:
       The gRPC server address to connect to (e.g., localhost:50051). Defaults to localhost:50051 if not set.
   --help
       Display help information for the get-status command.`,
-	Example:      `$ taskman --user-id client001 get-status a7da14c7-b47a-4535-a263-5bb26e503002`,
-	Args:         cobra.ExactArgs(1),
-	SilenceUsage: true,
+	Example:       `$ taskman --user-id client001 get-status a7da14c7-b47a-4535-a263-5bb26e503002`,
+	Args:          cobra.ExactArgs(1),
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		taskID := args[0]
 		if taskID == "" {
-			err := cmd.Usage()
-			if err != nil {
+			if err := cmd.Usage(); err != nil {
 				return fmt.Errorf("failed to display usage: %w", err)
 			}
 			return fmt.Errorf("task ID is required")
@@ -46,12 +48,17 @@ Options:
 			return fmt.Errorf("failed to create task manager: %w", err)
 		}
 		defer func() {
-			if err := manager.Close(); err != nil {
-				fmt.Fprintf(os.Stderr, "failed to close manager: %v\n", err)
+			if closeErr := manager.Close(); closeErr != nil {
+				if _, logErr := fmt.Fprintf(cmd.OutOrStderr(), "failed to close manager: %v\n", closeErr); logErr != nil {
+					// Fallback to fmt.Printf output if logging to cmd.OutOrStderr fails.
+					fmt.Printf("failed to log close error: %v\n", logErr)
+				}
 			}
 		}()
+		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
 
-		status, err := manager.GetTaskStatus(taskID)
+		status, err := manager.GetTaskStatus(ctx, taskID)
 		if err != nil {
 			return fmt.Errorf("failed to get task status: %w", err)
 		}
