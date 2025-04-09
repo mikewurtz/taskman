@@ -62,8 +62,8 @@ type TaskStatus struct {
 func (t *TaskStatus) String() string {
 	var buf bytes.Buffer
 	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "TASK ID\tSTART TIME\tPID\tSTATUS\tEXIT CODE\tSIGNAL\tSOURCE\tEND TIME")
-	fmt.Fprintln(w, "-------\t----------\t---\t------\t---------\t------\t------\t--------")
+	fmt.Fprintln(w, "TASK ID\tSTART TIME\tPID\tSTATUS\tEXIT CODE\tSIGNAL\tSTOP SOURCE\tEND TIME")
+	fmt.Fprintln(w, "-------\t----------\t---\t------\t---------\t------\t-----------\t--------")
 
 	startTime := t.StartTime.Format("2006-01-02 15:04:05")
 

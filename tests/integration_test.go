@@ -66,14 +66,14 @@ func startTestServer(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 			defer cancel()
 
-			// try a get task status, if it returns codes.Unimplemented then the server is ready
+			// try a get task status with a task that does not exist, if it returns codes.NotFound then the server is ready
 			_, err := client.GetTaskStatus(ctx, &pb.TaskStatusRequest{
 				TaskId: "375b0522-72ed-4f3f-88d0-01d360d06b8c",
 			})
 
 			sts, ok := status.FromError(err)
-			// TODO: this will need to be updated once we have a real implementation
-			return ok && sts.Code() == codes.Unimplemented
+			// check that the error is NotFound; we should be ready if it is
+			return ok && sts.Code() == codes.NotFound
 		}, 2*time.Second, 10*time.Millisecond, "gRPC server did not start in time")
 
 		stopServer = func() {
@@ -149,6 +149,7 @@ func TestIntegration_StartTask(t *testing.T) {
 
 func TestIntegration_StartTaskWithFullPath(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -169,6 +170,7 @@ func TestIntegration_StartTaskWithFullPath(t *testing.T) {
 
 func TestIntegration_StartTaskStopImmediately(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -216,11 +218,12 @@ func TestIntegration_StartTaskStopImmediately(t *testing.T) {
 	assert.NotNil(t, statusResp.EndTime)
 	assert.NotNil(t, statusResp.StartTime)
 	assert.Equal(t, resp.TaskId, statusResp.TaskId)
-	assert.Equal(t, exitCodeKilled, *statusResp.ExitCode)
+	assert.Nil(t, statusResp.ExitCode)
 }
 
 func TestIntegration_StartTaskExitsError(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -257,6 +260,7 @@ func TestIntegration_StartTaskExitsError(t *testing.T) {
 
 func TestIntegration_StartTaskCommandDoesNotExistInPath(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -277,6 +281,7 @@ func TestIntegration_StartTaskCommandDoesNotExistInPath(t *testing.T) {
 
 func TestIntegration_StartTaskFullPathCommandDoesNotExist(t *testing.T) {
 	t.Parallel()
+	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 

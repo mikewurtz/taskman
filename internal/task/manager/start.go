@@ -15,6 +15,72 @@ import (
 	"github.com/mikewurtz/taskman/internal/task/cgroups"
 )
 
+// monitorProcess handles the process completion and status updates
+func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
+	err := cmd.Wait()
+	finishTime := time.Now()
+
+	var exitCode *int
+	var signal string
+	
+	var status syscall.WaitStatus
+	var ok bool
+	
+	if err != nil {
+		if exitErr, isExitErr := err.(*exec.ExitError); isExitErr {
+			status, ok = exitErr.Sys().(syscall.WaitStatus)
+		}
+	} else {
+		status, ok = cmd.ProcessState.Sys().(syscall.WaitStatus)
+	}
+	
+	if ok {
+		if status.Signaled() {
+			signal = status.Signal().String()
+		} else {
+			code := status.ExitStatus()
+			exitCode = &code
+		}
+	}
+
+	tm.mu.RLock()
+	task, ok := tm.tasksMapByID[taskID]
+	tm.mu.RUnlock()
+	if !ok {
+		return
+	}
+
+	task.mu.Lock()
+	defer task.mu.Unlock()
+
+	task.EndTime = finishTime
+	if exitCode != nil {
+		ec := int32(*exitCode)
+		task.ExitCode = &ec
+	}
+	task.TerminationSignal = signal
+
+	if err != nil {
+		log.Printf("Task %s failed: %v", taskID, err)
+		if task.TerminationSource == "" && signal == "" {
+			task.Status = "JOB_STATUS_EXITED_ERROR"
+		} else {
+			if task.TerminationSource == "" {
+				task.TerminationSource = "external"
+			}
+			task.Status = "JOB_STATUS_SIGNALED"
+		}
+	} else {
+		task.Status = "JOB_STATUS_EXITED_OK"
+		log.Printf("Task %s completed successfully", taskID)
+	}
+
+	// Clean up cgroup after process completes
+	// if cleanupErr := cgroups.RemoveCgroupForTask(taskID); cleanupErr != nil {
+	// 	log.Printf("Failed to clean up cgroup after process completion: %v", cleanupErr)
+	// }
+}
+
 func (tm *TaskManager) StartTask(ctx context.Context, command string, args []string) (string, error) {
 	clientCN := ctx.Value(basegrpc.ClientCNKey)
 	log.Printf("Starting task for client %s: %s %v", clientCN, command, args)
@@ -78,68 +144,8 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 
 	tm.AddTask(task)
 
-	// TODO move this goroutine into its own function
-	go func(taskID string, cmd *exec.Cmd) {
-		err := cmd.Wait()
-		finishTime := time.Now()
-
-		var exitCode int
-		var signal string
-
-		if err != nil {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-					exitCode = status.ExitStatus()
-					if status.Signaled() {
-						signal = status.Signal().String()
-					} else {
-						// TODO why is this negative 1?
-						log.Println("exit code", status.ExitStatus())
-						exitCode = status.ExitStatus()
-					}
-				}
-			}
-		} else {
-			if status, ok := cmd.ProcessState.Sys().(syscall.WaitStatus); ok {
-				exitCode = status.ExitStatus()
-			}
-		}
-
-		tm.mu.RLock()
-		task, ok := tm.tasksMapByID[taskID]
-		tm.mu.RUnlock()
-		if !ok {
-			return
-		}
-
-		task.mu.Lock()
-		defer task.mu.Unlock()
-
-		task.EndTime = finishTime
-		ec := int32(exitCode)
-		task.ExitCode = &ec
-		task.TerminationSignal = signal
-
-		if err != nil {
-			log.Printf("Task %s failed: %v", taskID, err)
-			if task.TerminationSource == "" && signal == "" {
-				task.Status = "JOB_STATUS_EXITED_ERROR"
-			} else {
-				if task.TerminationSource == "" {
-					task.TerminationSource = "external"
-				}
-				task.Status = "JOB_STATUS_SIGNALED"
-			}
-		} else {
-			task.Status = "JOB_STATUS_EXITED_OK"
-			log.Printf("Task %s completed successfully", taskID)
-		}
-
-		// Clean up cgroup after process completes
-		if cleanupErr := cgroups.RemoveCgroupForTask(taskID); cleanupErr != nil {
-			log.Printf("Failed to clean up cgroup after process completion: %v", cleanupErr)
-		}
-	}(taskID, cmd)
+	// Start monitoring the process
+	go tm.monitorProcess(taskID, cmd)
 
 	return taskID, nil
 }
