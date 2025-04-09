@@ -33,8 +33,7 @@ Options:
 
 		taskID := args[0]
 		if taskID == "" {
-			err := cmd.Usage()
-			if err != nil {
+			if err := cmd.Usage(); err != nil {
 				return fmt.Errorf("failed to display usage: %w", err)
 			}
 			return fmt.Errorf("task ID is required")
