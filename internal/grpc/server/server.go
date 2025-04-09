@@ -71,5 +71,4 @@ func (s *Server) Start() error {
 
 func (s *Server) Stop() {
 	s.grpcServer.GracefulStop()
-	s.listener.Close()
 }

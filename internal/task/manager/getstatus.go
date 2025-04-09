@@ -2,10 +2,10 @@ package task
 
 import (
 	"context"
+	"fmt"
 
 	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	basetask "github.com/mikewurtz/taskman/internal/task"
 )
 
 func (tm *TaskManager) GetTaskStatus(ctx context.Context, taskID string) (*Task, error) {
@@ -13,12 +13,12 @@ func (tm *TaskManager) GetTaskStatus(ctx context.Context, taskID string) (*Task,
 	task, ok := tm.tasksMapByID[taskID]
 	tm.mu.RUnlock()
 	if !ok {
-		return nil, status.Errorf(codes.NotFound, "task with id %s not found", taskID)
+		return nil, basetask.NewTaskError(basetask.ErrNotFound, fmt.Sprintf("task with id %s not found", taskID), nil)
 	}
 
 	caller := ctx.Value(basegrpc.ClientCNKey).(string)
 	if task.ClientID != caller && caller != "admin" {
-		return nil, status.Errorf(codes.NotFound, "task with id %s not found", taskID)
+		return nil, basetask.NewTaskError(basetask.ErrNotFound, fmt.Sprintf("task with id %s not found", taskID), nil)
 	}
 
 	task.mu.RLock()

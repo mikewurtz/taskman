@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"google.golang.org/grpc/codes"
 
 	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
 	basetask "github.com/mikewurtz/taskman/internal/task"
@@ -21,7 +20,7 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 	log.Printf("Starting task for client %s: %s %v", clientCN, command, args)
 
 	if command == "" {
-		return "", basetask.NewTaskError(codes.InvalidArgument, "command cannot be empty", nil)
+		return "", basetask.NewTaskError(basetask.ErrInvalidArgument, "command cannot be empty")
 	}
 
 	taskID := uuid.New().String()
@@ -29,7 +28,7 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 	// Create cgroup and get file descriptor
 	cgroupFd, err := cgroups.CreateCgroupForTask(taskID)
 	if err != nil {
-		return "", basetask.NewTaskError(codes.Internal, "failed to create cgroup", err)
+		return "", basetask.NewTaskError(basetask.ErrInternal, "failed to create cgroup")
 	}
 
 	cmd := exec.Command(command, args...)
@@ -51,11 +50,11 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 		}
 		switch e := err.(type) {
 		case *exec.Error:
-			return "", basetask.NewTaskError(codes.InvalidArgument, "invalid command", e)
+			return "", basetask.NewTaskErrorWithErr(basetask.ErrInvalidArgument, "invalid command", e)
 		case *os.PathError:
-			return "", basetask.NewTaskError(codes.InvalidArgument, "command not found or not executable", e)
+			return "", basetask.NewTaskErrorWithErr(basetask.ErrInvalidArgument, "command not found or not executable", e)
 		default:
-			return "", basetask.NewTaskError(codes.Internal, "failed to start process", err)
+			return "", basetask.NewTaskErrorWithErr(basetask.ErrInternal, "failed to start process", err)
 		}
 	}
 
@@ -79,6 +78,7 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 
 	tm.AddTask(task)
 
+	// TODO move this goroutine into its own function
 	go func(taskID string, cmd *exec.Cmd) {
 		err := cmd.Wait()
 		finishTime := time.Now()
@@ -92,6 +92,10 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 					exitCode = status.ExitStatus()
 					if status.Signaled() {
 						signal = status.Signal().String()
+					} else {
+						// TODO why is this negative 1?
+						log.Println("exit code", status.ExitStatus())
+						exitCode = status.ExitStatus()
 					}
 				}
 			}
@@ -117,8 +121,15 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 		task.TerminationSignal = signal
 
 		if err != nil {
-			task.Status = "JOB_STATUS_EXITED_ERROR"
 			log.Printf("Task %s failed: %v", taskID, err)
+			if task.TerminationSource == "" && signal == "" {
+				task.Status = "JOB_STATUS_EXITED_ERROR"
+			} else {
+				if task.TerminationSource == "" {
+					task.TerminationSource = "external"
+				}
+				task.Status = "JOB_STATUS_SIGNALED"
+			}
 		} else {
 			task.Status = "JOB_STATUS_EXITED_OK"
 			log.Printf("Task %s completed successfully", taskID)

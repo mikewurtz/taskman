@@ -25,6 +25,8 @@ const (
 	testUserID     = "client001"
 	testServerAddr = "localhost:50055"
 	testTimeout    = 5 * time.Second
+	exitCode2      = int32(2)
+	exitCodeKilled = int32(-1)
 )
 
 var stopServer func()
@@ -118,14 +120,164 @@ func TestIntegration_StartTask(t *testing.T) {
 		Command: "ls",
 		Args:    []string{"-l"},
 	})
-	assert.Nil(t, resp)
-	require.Error(t, err)
+	assert.NotNil(t, resp)
+	assert.NotEmpty(t, resp.TaskId)
+	require.NoError(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
-	assert.Equal(t, codes.Unimplemented, sts.Code())
+	assert.Equal(t, codes.OK, sts.Code())
 }
 
-func TestIntegration_GetTaskStatus(t *testing.T) {
+func TestIntegration_StartTaskWithFullPath(t *testing.T) {
+	t.Parallel()
+
+	client := createTestClient(t, "client001")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	resp, err := client.StartTask(ctx, &pb.StartTaskRequest{
+		Command: "/bin/ls",
+		Args:    []string{"-l"},
+	})
+	assert.NotNil(t, resp)
+	assert.NotEmpty(t, resp.TaskId)
+	require.NoError(t, err)
+	sts, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.OK, sts.Code())
+}
+
+func TestIntegration_StartTaskStopImmediately(t *testing.T) {
+	t.Parallel()
+
+	client := createTestClient(t, "client001")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	resp, err := client.StartTask(ctx, &pb.StartTaskRequest{
+		Command: "sleep",
+		Args:    []string{"5"},
+	})
+	assert.NotNil(t, resp)
+	assert.NotEmpty(t, resp.TaskId)
+	require.NoError(t, err)
+	sts, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.OK, sts.Code())
+
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer stopCancel()
+
+	// stop the task immediately
+	stopResp, err := client.StopTask(stopCtx, &pb.StopTaskRequest{
+		TaskId: resp.TaskId,
+	})
+	require.NoError(t, err)
+	stopSts, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.OK, stopSts.Code())
+	assert.NotNil(t, stopResp)
+
+	// get the status of the task
+	var statusResp *pb.TaskStatusResponse
+	const pollInterval = 100 * time.Millisecond
+	require.Eventually(t, func() bool {
+		statusResp, err = client.GetTaskStatus(ctx, &pb.TaskStatusRequest{
+			TaskId: resp.TaskId,
+		})
+		// wait for the task to exit with and error
+		return err == nil && statusResp != nil && statusResp.Status == pb.JobStatus_JOB_STATUS_SIGNALED
+	}, 3*time.Second, pollInterval, "expected task to exit with error")
+
+	assert.Equal(t, pb.JobStatus_JOB_STATUS_SIGNALED, statusResp.Status)
+	assert.Equal(t, "user", statusResp.TerminationSource)
+	assert.Equal(t, "killed", statusResp.TerminationSignal)
+	assert.NotNil(t, statusResp.EndTime)
+	assert.NotNil(t, statusResp.StartTime)
+	assert.Equal(t, resp.TaskId, statusResp.TaskId)
+	assert.Equal(t, exitCodeKilled, *statusResp.ExitCode)
+}
+
+func TestIntegration_StartTaskExitsError(t *testing.T) {
+	t.Parallel()
+
+	client := createTestClient(t, "client001")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	resp, err := client.StartTask(ctx, &pb.StartTaskRequest{
+		Command: "ls",
+		Args:    []string{"/nonexistent"},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.NotEmpty(t, resp.TaskId)
+
+	var statusResp *pb.TaskStatusResponse
+	const pollInterval = 100 * time.Millisecond
+
+	require.Eventually(t, func() bool {
+		statusResp, err = client.GetTaskStatus(ctx, &pb.TaskStatusRequest{
+			TaskId: resp.TaskId,
+		})
+		// wait for the task to exit with and error
+		return err == nil && statusResp != nil && statusResp.Status == pb.JobStatus_JOB_STATUS_EXITED_ERROR
+	}, 3*time.Second, pollInterval, "expected task to exit with error")
+
+	assert.Equal(t, pb.JobStatus_JOB_STATUS_EXITED_ERROR, statusResp.Status)
+	assert.Equal(t, "", statusResp.TerminationSource)
+	assert.Equal(t, "", statusResp.TerminationSignal)
+	assert.NotNil(t, statusResp.EndTime)
+	assert.NotNil(t, statusResp.StartTime)
+	assert.Equal(t, resp.TaskId, statusResp.TaskId)
+	assert.Equal(t, exitCode2, *statusResp.ExitCode)
+}
+
+func TestIntegration_StartTaskCommandDoesNotExistInPath(t *testing.T) {
+	t.Parallel()
+
+	client := createTestClient(t, "client001")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	resp, err := client.StartTask(ctx, &pb.StartTaskRequest{
+		Command: "test-command-that-does-not-exist",
+	})
+	require.Error(t, err)
+	require.Nil(t, resp)
+	sts, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, sts.Code())
+	assert.Contains(t, sts.Message(), "invalid command")
+	assert.Contains(t, sts.Message(), "executable file not found in $PATH")
+}
+
+func TestIntegration_StartTaskFullPathCommandDoesNotExist(t *testing.T) {
+	t.Parallel()
+
+	client := createTestClient(t, "client001")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	resp, err := client.StartTask(ctx, &pb.StartTaskRequest{
+		Command: "/path/to/test-command-that-does-not-exist",
+	})
+	require.Error(t, err)
+	fmt.Println(err)
+	require.Nil(t, resp)
+	sts, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, sts.Code())
+	assert.Contains(t, sts.Message(), "command not found")
+	assert.Contains(t, sts.Message(), "no such file or directory")
+}
+
+func TestIntegration_GetTaskStatusDoesNotExist(t *testing.T) {
 	t.Parallel()
 
 	client := createTestClient(t, "client001")
@@ -140,7 +292,7 @@ func TestIntegration_GetTaskStatus(t *testing.T) {
 	require.Error(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
-	assert.Equal(t, codes.Unimplemented, sts.Code())
+	assert.Equal(t, codes.NotFound, sts.Code())
 }
 
 func TestIntegration_StreamTaskOutput(t *testing.T) {
@@ -164,7 +316,7 @@ func TestIntegration_StreamTaskOutput(t *testing.T) {
 	assert.Equal(t, codes.Unimplemented, sts.Code())
 }
 
-func TestIntegration_StopTask(t *testing.T) {
+func TestIntegration_StopTaskDoesNotExist(t *testing.T) {
 	t.Parallel()
 
 	client := createTestClient(t, "client001")
@@ -179,7 +331,7 @@ func TestIntegration_StopTask(t *testing.T) {
 	require.Error(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
-	assert.Equal(t, codes.Unimplemented, sts.Code())
+	assert.Equal(t, codes.NotFound, sts.Code())
 }
 
 func TestIntegration_StopTaskContextCanceled(t *testing.T) {

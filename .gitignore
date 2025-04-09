@@ -4,3 +4,7 @@
 
 # ignore vs code
 .vscode
+
+# ignore test binaries
+**/testbin
+

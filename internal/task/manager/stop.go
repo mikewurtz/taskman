@@ -1,14 +1,12 @@
 package task
 
-
 import (
 	"context"
+	"fmt"
 	"syscall"
 
 	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
 	basetask "github.com/mikewurtz/taskman/internal/task"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (tm *TaskManager) StopTask(ctx context.Context, taskID string) error {
@@ -16,20 +14,25 @@ func (tm *TaskManager) StopTask(ctx context.Context, taskID string) error {
 	task, ok := tm.tasksMapByID[taskID]
 	tm.mu.RUnlock()
 	if !ok {
-		return status.Errorf(codes.NotFound, "task with id %s not found", taskID)
+		// TODO do I need the %s here?
+		return basetask.NewTaskError(basetask.ErrNotFound, "%s", fmt.Sprintf("task with id %s not found", taskID))
 	}
 
 	caller := ctx.Value(basegrpc.ClientCNKey).(string)
 	if task.ClientID != caller && caller != "admin" {
-		return status.Errorf(codes.NotFound, "task with id %s not found", taskID)
+		// TODO do I need the %s here?
+		return basetask.NewTaskError(basetask.ErrNotFound, "%s", fmt.Sprintf("task with id %s not found", taskID))
 	}
 
-	if err := syscall.Kill(-task.ProcessID, syscall.SIGTERM); err != nil {
-		return basetask.NewTaskError(codes.Internal, "failed to send SIGTERM to process group", err)
+	if err := syscall.Kill(-task.ProcessID, syscall.SIGKILL); err != nil {
+		return basetask.NewTaskErrorWithErr(basetask.ErrInternal, "failed to send SIGKILL to process group", err)
 	}
 
 	task.mu.Lock()
 	task.TerminationSource = "user"
+	if caller == "admin" {
+		task.TerminationSource = "admin"
+	}
 	task.mu.Unlock()
 
 	return nil

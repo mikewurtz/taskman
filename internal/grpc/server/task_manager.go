@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 
 	pb "github.com/mikewurtz/taskman/gen/proto"
 
@@ -28,9 +27,21 @@ type taskManagerServer struct {
 
 // handleTaskError converts a TaskError to a gRPC status error
 func handleTaskError(err error) error {
-	var taskErr *task.TaskError
-	if errors.As(err, &taskErr) {
-		return status.Error(taskErr.Code, taskErr.Error())
+	if taskErr, ok := task.IsTaskError(err); ok {
+		var code codes.Code
+		switch taskErr.Code {
+		case task.ErrInvalidArgument:
+			code = codes.InvalidArgument
+		case task.ErrNotFound:
+			code = codes.NotFound
+		case task.ErrAlreadyTerminated:
+			code = codes.FailedPrecondition
+		case task.ErrInternal:
+			code = codes.Internal
+		default:
+			code = codes.Internal
+		}
+		return status.Error(code, taskErr.Error())
 	}
 	// If it's not a TaskError, return it as an internal error
 	return status.Error(codes.Internal, err.Error())
@@ -76,6 +87,5 @@ func (s *taskManagerServer) GetTaskStatus(ctx context.Context, req *pb.TaskStatu
 
 // StreamTaskOutput
 func (s *taskManagerServer) StreamTaskOutput(req *pb.StreamTaskOutputRequest, stream pb.TaskManager_StreamTaskOutputServer) error {
-	stream.Send(&pb.StreamTaskOutputResponse{})
 	return status.Errorf(codes.Unimplemented, "StreamTaskOutput not implemented")
 }
