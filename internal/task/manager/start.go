@@ -29,7 +29,7 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 	// Create cgroup and get file descriptor
 	cgroupFd, err := cgroups.CreateCgroupForTask(taskID)
 	if err != nil {
-		return "", basetask.NewTaskError(basetask.ErrInternal, "failed to create cgroup")
+		return "", basetask.NewTaskErrorWithErr(basetask.ErrInternal, "failed to create cgroup", err)
 	}
 
 	cmd := exec.Command(command, args...)

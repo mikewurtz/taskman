@@ -37,7 +37,7 @@ func CreateCgroupForTask(taskID string) (*os.File, error) {
 	// echo "+io" | sudo tee /sys/fs/cgroup/cgroup.subtree_control
 	// Configure IO limits: device "8:0" with max read and write bandwidth 1048576 (1 MB/s).
 	ioMaxPath := filepath.Join(cgroupPath, "io.max")
-	ioConfig := "8:0 1048576 1048576"
+	ioConfig := "8:0 rbps=1048576 wbps=1048576"
 	if err := os.WriteFile(ioMaxPath, []byte(ioConfig), 0644); err != nil {
 		return nil, fmt.Errorf("failed to write IO config to %s: %w", ioMaxPath, err)
 	}
@@ -45,7 +45,6 @@ func CreateCgroupForTask(taskID string) (*os.File, error) {
 	// Open the cgroup directory as a file descriptor
 	cgFd, err := os.Open(cgroupPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to open cgroup path: %v\n", err)
 		return nil, fmt.Errorf("failed to open cgroup path: %w", err)
 	}
 
