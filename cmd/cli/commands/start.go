@@ -1,10 +1,8 @@
 package commands
 
 import (
-	"context"
+	"errors"
 	"fmt"
-	"os/signal"
-	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -41,7 +39,7 @@ Options:
 			if err := cmd.Usage(); err != nil {
 				return fmt.Errorf("failed to display usage: %w", err)
 			}
-			return fmt.Errorf("command is required")
+			return errors.New("command is required")
 		}
 		var cmdArgs []string
 		if len(args) > 1 {
@@ -61,10 +59,7 @@ Options:
 			}
 		}()
 
-		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-		defer stop()
-
-		taskID, err := manager.StartTask(ctx, command, cmdArgs)
+		taskID, err := manager.StartTask(cmd.Context(), command, cmdArgs)
 		if err != nil {
 			return fmt.Errorf("failed to start task: %w", err)
 		}

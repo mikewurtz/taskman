@@ -3,5 +3,5 @@ package grpc
 type contextKey string
 
 const (
-	ClientCNKey = contextKey("clientCN")
+	ClientIDKey = contextKey("clientCN")
 )

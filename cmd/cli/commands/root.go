@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"fmt"
+	"errors"
 	"log"
 
 	"github.com/spf13/cobra"
@@ -25,7 +25,7 @@ This client connects to a taskman-server instance over a secure mTLS connection.
   $ taskman --user-id client001 --server-address localhost:50053 stop 123e4567-e89b-12d3-a456-426614174000`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if userID == "" {
-			return fmt.Errorf("--user-id is required")
+			return errors.New("--user-id is required")
 		}
 		return nil
 	},

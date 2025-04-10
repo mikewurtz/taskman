@@ -20,9 +20,9 @@ type Server struct {
 	listener   net.Listener
 }
 
-// NewServer sets up the gRPC server and listener with mTLS authentication using TLS v1.3
+// New sets up the gRPC server and listener with mTLS authentication using TLS v1.3
 // Includes interceptors for injecting the client CN into the context for unary and stream calls
-func NewServer(serverAddr string) (*Server, error) {
+func New(serverAddr string) (*Server, error) {
 	cert, err := basegrpc.LoadTLSCert(certs.ServerCertName)
 	if err != nil {
 		return nil, fmt.Errorf("loading server cert: %w", err)

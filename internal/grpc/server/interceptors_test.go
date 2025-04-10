@@ -107,7 +107,7 @@ func TestExtractClientCNInterceptor(t *testing.T) {
 
 			handler := func(ctx context.Context, req any) (any, error) {
 				called = true
-				if cn, ok := ctx.Value(basegrpc.ClientCNKey).(string); ok {
+				if cn, ok := ctx.Value(basegrpc.ClientIDKey).(string); ok {
 					require.Equal(t, tt.wantCN, cn, "Common Name mismatch")
 				} else if tt.wantCN != "" {
 					require.Fail(t, "Expected CN in context")
@@ -223,7 +223,7 @@ func TestExtractClientCNStreamInterceptor(t *testing.T) {
 
 			handler := func(srv any, stream grpc.ServerStream) error {
 				called = true
-				if cn, ok := stream.Context().Value(basegrpc.ClientCNKey).(string); ok {
+				if cn, ok := stream.Context().Value(basegrpc.ClientIDKey).(string); ok {
 					require.Equal(t, tt.wantCN, cn, "Common Name mismatch")
 				} else if tt.wantCN != "" {
 					require.Fail(t, "Expected CN in context")

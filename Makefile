@@ -30,7 +30,7 @@ generate-proto:
 unit-test:
 	# Run unit tests as non-root
 	@echo "==> Running unit tests (non-root)"
-	CGO_ENABLED=1 go test -v -race -cover $$(go list ./... | grep -v 'github.com/mikewurtz/taskman/tests$$')
+	go test -v -race -cover $$(go list ./... | grep -v 'github.com/mikewurtz/taskman/tests$$')
 
 test-integration:
 	# Run integration tests as root since cgroup creation is privileged
@@ -47,6 +47,7 @@ test-integration-specific:
 	fi; \
 	CGO_ENABLED=1 go test -c -o tests/testbin ./tests && \
 	sudo ./tests/testbin -test.v -test.run "^$(FUNC)$$"
+
 
 clean:
 	rm -rf $(BINDIR) $(GEN_DIR)
