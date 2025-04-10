@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -34,12 +35,12 @@ func CreateCgroupForTask(taskID string) (*os.File, error) {
 
 	// io is not always enabled on the system and can be enabled by:
 	// echo "+io" | sudo tee /sys/fs/cgroup/cgroup.subtree_control
-	// Configure IO limits: device "8:0" with max read and write bandwidth 268435456 (32 MB/s).
-	// ioMaxPath := filepath.Join(cgroupPath, "io.max")
-	// ioConfig := "8:0 32768 32768"
-	// if err := os.WriteFile(ioMaxPath, []byte(ioConfig), 0644); err != nil {
-	// 	return nil, fmt.Errorf("failed to write IO config to %s: %w", ioMaxPath, err)
-	// }
+	// Configure IO limits: device "8:0" with max read and write bandwidth 1048576 (1 MB/s).
+	ioMaxPath := filepath.Join(cgroupPath, "io.max")
+	ioConfig := "8:0 1048576 1048576"
+	if err := os.WriteFile(ioMaxPath, []byte(ioConfig), 0644); err != nil {
+		return nil, fmt.Errorf("failed to write IO config to %s: %w", ioMaxPath, err)
+	}
 
 	// Open the cgroup directory as a file descriptor
 	cgFd, err := os.Open(cgroupPath)
@@ -78,3 +79,21 @@ func RemoveCgroupForTask(taskID string) error {
 	}
 }
 
+func CheckIfOOMKilled(taskID string) (bool, error) {
+	cgroupPath := filepath.Join(baseCgroupPath, taskID)
+	oomPath := filepath.Join(cgroupPath, "memory.events")
+
+	data, err := os.ReadFile(oomPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to read memory.events: %w", err)
+	}
+
+	lines := strings.SplitSeq(string(data), "\n")
+	for line := range lines {
+		if fields := strings.Fields(line); len(fields) == 2 && fields[0] == "oom_kill" && fields[1] == "1" {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
