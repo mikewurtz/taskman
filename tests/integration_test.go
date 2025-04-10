@@ -26,7 +26,7 @@ const (
 	testTimeout    = 5 * time.Second
 	exitCode2      = int32(2)
 	exitCodeKilled = int32(-1)
-	testUserID = "client001"
+	testUserID     = "client001"
 )
 
 var (
@@ -87,7 +87,7 @@ func startTestServer() (func(), error) {
 		cancel()
 
 		sts, ok := status.FromError(err)
-		if ok && sts.Code() == codes.Unimplemented {
+		if ok && sts.Code() == codes.NotFound {
 			// Server is ready we can return
 			return stopServer, nil
 		}

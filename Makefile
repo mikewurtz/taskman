@@ -49,8 +49,5 @@ test-integration-specific:
 	go test -c -o tests/testbin ./tests && \
 	sudo ./tests/testbin -test.v -test.run "^$(FUNC)$$"
 
-test:
-	go test -v -race -cover ./...
-
 clean:
 	rm -rf $(BINDIR) $(GEN_DIR)
