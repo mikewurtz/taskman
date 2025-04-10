@@ -12,8 +12,8 @@ import (
 	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
 )
 
-// NewClient creates a new gRPC client with mTLS authentication
-func NewClient(userID string, serverAddr string) (pb.TaskManagerClient, *grpc.ClientConn, error) {
+// New creates a new gRPC client with mTLS authentication
+func New(userID string, serverAddr string) (pb.TaskManagerClient, *grpc.ClientConn, error) {
 	cert, err := basegrpc.LoadTLSCert(userID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("loading client cert: %w", err)

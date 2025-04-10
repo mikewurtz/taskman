@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"google.golang.org/grpc"
@@ -25,7 +26,7 @@ func ExtractClientCNInterceptor(
 	if err != nil || commonName == "" {
 		return nil, status.Errorf(codes.Unauthenticated, "failed to get client CN")
 	}
-	ctxWithCN := context.WithValue(ctx, basegrpc.ClientCNKey, commonName)
+	ctxWithCN := context.WithValue(ctx, basegrpc.ClientIDKey, commonName)
 	respObj, err := handler(ctxWithCN, req)
 	return respObj, err
 }
@@ -44,7 +45,7 @@ func ExtractClientCNStreamInterceptor(
 		return status.Errorf(codes.Unauthenticated, "failed to get client CN")
 	}
 
-	ctxWithCN := context.WithValue(ctx, basegrpc.ClientCNKey, commonName)
+	ctxWithCN := context.WithValue(ctx, basegrpc.ClientIDKey, commonName)
 
 	wrappedStream := &wrappedServerStream{
 		ServerStream: ss,
@@ -57,12 +58,12 @@ func ExtractClientCNStreamInterceptor(
 func getClientCN(ctx context.Context) (string, error) {
 	p, ok := peer.FromContext(ctx)
 	if !ok {
-		return "", fmt.Errorf("peer not found in context")
+		return "", errors.New("peer not found in context")
 	}
 
 	authInfo := p.AuthInfo
 	if authInfo == nil {
-		return "", fmt.Errorf("auth info missing from peer context")
+		return "", errors.New("auth info missing from peer context")
 	}
 
 	tlsInfo, ok := authInfo.(credentials.TLSInfo)
@@ -71,7 +72,7 @@ func getClientCN(ctx context.Context) (string, error) {
 	}
 
 	if len(tlsInfo.State.PeerCertificates) == 0 {
-		return "", fmt.Errorf("no peer certificates provided by client")
+		return "", errors.New("no peer certificates provided by client")
 	}
 
 	return tlsInfo.State.PeerCertificates[0].Subject.CommonName, nil

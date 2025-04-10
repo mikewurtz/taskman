@@ -22,7 +22,7 @@ var rootCmd = &cobra.Command{
 over a secure mTLS connection.`,
 	Example: `$ taskman-server --server-address localhost:50051`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		server, err := server.NewServer(serverAddr)
+		server, err := server.New(serverAddr)
 		if err != nil {
 			return fmt.Errorf("failed to initialize server: %w", err)
 		}

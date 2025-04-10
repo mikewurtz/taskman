@@ -3,6 +3,7 @@ package grpc
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 
 	"github.com/mikewurtz/taskman/certs"
@@ -24,12 +25,12 @@ func LoadCACertPool() (*x509.CertPool, error) {
 
 // LoadTLSCert loads a TLS certificate from the embedded files
 func LoadTLSCert(certName string) (tls.Certificate, error) {
-	certPEM, err := certs.CertFiles.ReadFile(fmt.Sprintf("%s.crt", certName))
+	certPEM, err := certs.CertFiles.ReadFile(certName + ".crt")
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("failed to read cert file: %w", err)
 	}
 
-	keyPEM, err := certs.CertFiles.ReadFile(fmt.Sprintf("%s.key", certName))
+	keyPEM, err := certs.CertFiles.ReadFile(certName + ".key")
 	if err != nil {
 		return tls.Certificate{}, fmt.Errorf("failed to read key file: %w", err)
 	}

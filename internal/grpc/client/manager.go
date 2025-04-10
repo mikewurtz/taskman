@@ -17,7 +17,7 @@ type Manager struct {
 
 // NewManager sets up a new gRPC manager
 func NewManager(userID, serverAddr string) (*Manager, error) {
-	client, conn, err := NewClient(userID, serverAddr)
+	client, conn, err := New(userID, serverAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}

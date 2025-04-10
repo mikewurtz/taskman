@@ -1,10 +1,7 @@
 package commands
 
 import (
-	"context"
 	"fmt"
-	"os/signal"
-	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -55,9 +52,6 @@ Options:
 			}
 		}()
 
-		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-		defer stop()
-
-		return manager.StreamTaskOutput(ctx, taskID)
+		return manager.StreamTaskOutput(cmd.Context(), taskID)
 	},
 }

@@ -1,10 +1,8 @@
 package commands
 
 import (
-	"context"
+	"errors"
 	"fmt"
-	"os/signal"
-	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -40,7 +38,7 @@ Options:
 			if err := cmd.Usage(); err != nil {
 				return fmt.Errorf("failed to display usage: %w", err)
 			}
-			return fmt.Errorf("task ID is required")
+			return errors.New("task ID is required")
 		}
 
 		manager, err := client.NewManager(userID, serverAddr)
@@ -55,9 +53,7 @@ Options:
 				}
 			}
 		}()
-		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-		defer stop()
 
-		return manager.GetTaskStatus(ctx, taskID)
+		return manager.GetTaskStatus(cmd.Context(), taskID)
 	},
 }
