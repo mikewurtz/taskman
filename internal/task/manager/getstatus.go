@@ -16,7 +16,7 @@ func (tm *TaskManager) GetTaskStatus(ctx context.Context, taskID string) (*Task,
 		return nil, basetask.NewTaskError(basetask.ErrNotFound, fmt.Sprintf("task with id %s not found", taskID), nil)
 	}
 
-	caller := ctx.Value(basegrpc.ClientCNKey).(string)
+	caller := ctx.Value(basegrpc.ClientIDKey).(string)
 	if task.ClientID != caller && caller != "admin" {
 		return nil, basetask.NewTaskError(basetask.ErrNotFound, fmt.Sprintf("task with id %s not found", taskID), nil)
 	}

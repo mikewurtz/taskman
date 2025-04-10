@@ -18,7 +18,7 @@ func (tm *TaskManager) StopTask(ctx context.Context, taskID string) error {
 		return basetask.NewTaskError(basetask.ErrNotFound, "%s", fmt.Sprintf("task with id %s not found", taskID))
 	}
 
-	caller := ctx.Value(basegrpc.ClientCNKey).(string)
+	caller := ctx.Value(basegrpc.ClientIDKey).(string)
 	if task.ClientID != caller && caller != "admin" {
 		// TODO do I need the %s here?
 		return basetask.NewTaskError(basetask.ErrNotFound, "%s", fmt.Sprintf("task with id %s not found", taskID))

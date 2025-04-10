@@ -17,7 +17,7 @@ import (
 
 
 func (tm *TaskManager) StartTask(ctx context.Context, command string, args []string) (string, error) {
-	clientCN := ctx.Value(basegrpc.ClientCNKey)
+	clientCN := ctx.Value(basegrpc.ClientIDKey)
 	log.Printf("Starting task for client %s: %s %v", clientCN, command, args)
 
 	if command == "" {

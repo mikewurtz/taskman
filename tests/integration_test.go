@@ -178,7 +178,6 @@ func TestIntegration_StartTask(t *testing.T) {
 
 func TestIntegration_StartTaskWithFullPath(t *testing.T) {
 	t.Parallel()
-	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -199,7 +198,6 @@ func TestIntegration_StartTaskWithFullPath(t *testing.T) {
 
 func TestIntegration_StartTaskStopImmediately(t *testing.T) {
 	t.Parallel()
-	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -252,7 +250,6 @@ func TestIntegration_StartTaskStopImmediately(t *testing.T) {
 
 func TestIntegration_StartTaskExitsError(t *testing.T) {
 	t.Parallel()
-	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -289,7 +286,6 @@ func TestIntegration_StartTaskExitsError(t *testing.T) {
 
 func TestIntegration_StartTaskCommandDoesNotExistInPath(t *testing.T) {
 	t.Parallel()
-	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
@@ -310,7 +306,6 @@ func TestIntegration_StartTaskCommandDoesNotExistInPath(t *testing.T) {
 
 func TestIntegration_StartTaskFullPathCommandDoesNotExist(t *testing.T) {
 	t.Parallel()
-	startTestServer(t)
 
 	client := createTestClient(t, "client001")
 
