@@ -30,12 +30,12 @@ const (
 )
 
 var (
-	stopServer     func()
 	testServerAddr string
 )
 
 func TestMain(m *testing.M) {
-	if err := startTestServer(); err != nil {
+	stopServer, err := startTestServer()
+	if err != nil {
 		fmt.Println("failed to start test server:", err)
 		os.Exit(1)
 	}
@@ -49,10 +49,10 @@ func TestMain(m *testing.M) {
 
 // startTestServer starts the test server and returns a function to stop it
 // will only be called once
-func startTestServer() error {
+func startTestServer() (func(), error) {
 	srv, err := server.New("localhost:0")
 	if err != nil {
-		return fmt.Errorf("failed to create test server: %w", err)
+		return nil, fmt.Errorf("failed to create test server: %w", err)
 	}
 
 	go func() {
@@ -61,16 +61,20 @@ func startTestServer() error {
 		}
 	}()
 
-	stopServer = func() {
+	stopServer := func() {
 		srv.Stop()
 	}
 
 	testServerAddr = srv.Addr()
 	client, conn, err := createClient(testUserID)
 	if err != nil {
-		return fmt.Errorf("failed to create gRPC client: %w", err)
+		return nil, fmt.Errorf("failed to create gRPC client: %w", err)
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			fmt.Printf("failed to close gRPC connection: %v\n", err)
+		}
+	}()
 
 	// wait for the server to be ready to handle requests, 2 seconds should be plenty
 	deadline := time.Now().Add(2 * time.Second)
@@ -83,15 +87,15 @@ func startTestServer() error {
 		cancel()
 
 		sts, ok := status.FromError(err)
-		if ok && sts.Code() == codes.NotFound {
+		if ok && sts.Code() == codes.Unimplemented {
 			// Server is ready we can return
-			return nil
+			return stopServer, nil
 		}
 		// Pause briefly before retrying
 		time.Sleep(10 * time.Millisecond)
 	}
 
-	return errors.New("gRPC server did not start in time")
+	return nil, errors.New("gRPC server did not start in time")
 }
 
 func createClient(userID string) (pb.TaskManagerClient, *grpc.ClientConn, error) {

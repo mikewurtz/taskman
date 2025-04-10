@@ -43,7 +43,7 @@ Options:
 
 		manager, err := client.NewManager(userID, serverAddr)
 		if err != nil {
-			return fmt.Errorf("failed to create task manager: %w", err)
+			return fmt.Errorf("failed to set up gRPC client: %w", err)
 		}
 		defer func() {
 			if closeErr := manager.Close(); closeErr != nil {
