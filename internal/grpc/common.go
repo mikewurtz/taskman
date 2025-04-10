@@ -17,7 +17,7 @@ func LoadCACertPool() (*x509.CertPool, error) {
 
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(caCert) {
-		return nil, fmt.Errorf("failed to append CA certificate")
+		return nil, errors.New("failed to append CA certificate")
 	}
 	return pool, nil
 }
