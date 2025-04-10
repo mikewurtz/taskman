@@ -2,7 +2,6 @@ package task
 
 import (
 	"context"
-	"fmt"
 	"syscall"
 
 	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
@@ -10,18 +9,19 @@ import (
 )
 
 func (tm *TaskManager) StopTask(ctx context.Context, taskID string) error {
-	tm.mu.RLock()
-	task, ok := tm.tasksMapByID[taskID]
-	tm.mu.RUnlock()
-	if !ok {
-		// TODO do I need the %s here?
-		return basetask.NewTaskError(basetask.ErrNotFound, "%s", fmt.Sprintf("task with id %s not found", taskID))
+	task, err := tm.GetTask(taskID)
+	if err != nil {
+		return err
 	}
 
 	caller := ctx.Value(basegrpc.ClientIDKey).(string)
 	if task.ClientID != caller && caller != "admin" {
-		// TODO do I need the %s here?
-		return basetask.NewTaskError(basetask.ErrNotFound, "%s", fmt.Sprintf("task with id %s not found", taskID))
+		return basetask.NewTaskError(basetask.ErrNotFound, "task with id %s not found", taskID)
+
+	}
+
+	if !task.EndTime.IsZero() {
+		return basetask.NewTaskError(basetask.ErrFailedPrecondition, "task has already completed")
 	}
 
 	if err := syscall.Kill(-task.ProcessID, syscall.SIGKILL); err != nil {

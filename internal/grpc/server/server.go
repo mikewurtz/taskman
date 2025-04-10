@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -18,11 +19,12 @@ import (
 type Server struct {
 	grpcServer *grpc.Server
 	listener   net.Listener
+	taskServer *taskManagerServer
 }
 
 // New sets up the gRPC server and listener with mTLS authentication using TLS v1.3
 // Includes interceptors for injecting the client CN into the context for unary and stream calls
-func New(serverAddr string) (*Server, error) {
+func New(serverAddr string, ctx context.Context) (*Server, error) {
 	cert, err := basegrpc.LoadTLSCert(certs.ServerCertName)
 	if err != nil {
 		return nil, fmt.Errorf("loading server cert: %w", err)
@@ -51,7 +53,8 @@ func New(serverAddr string) (*Server, error) {
 		grpc.ChainUnaryInterceptor(ExtractClientCNInterceptor),
 		grpc.ChainStreamInterceptor(ExtractClientCNStreamInterceptor))
 
-	pb.RegisterTaskManagerServer(grpcServer, NewTaskManagerServer())
+	taskServer := NewTaskManagerServer(ctx)
+	pb.RegisterTaskManagerServer(grpcServer, taskServer)
 
 	lis, err := net.Listen("tcp", serverAddr)
 	if err != nil {
@@ -61,6 +64,7 @@ func New(serverAddr string) (*Server, error) {
 	return &Server{
 		grpcServer: grpcServer,
 		listener:   lis,
+		taskServer: taskServer,
 	}, nil
 }
 
@@ -79,4 +83,8 @@ func (s *Server) Addr() string {
 
 func (s *Server) Stop() {
 	s.grpcServer.GracefulStop()
+}
+
+func (s *Server) WaitForTasks() {
+	s.taskServer.taskManager.WaitForTasks()
 }

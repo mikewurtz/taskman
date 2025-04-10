@@ -3,6 +3,9 @@ package task
 import (
 	"errors"
 	"fmt"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // ErrorCode represents the type of error that occurred
@@ -15,6 +18,8 @@ const (
 	ErrNotFound
 	// ErrAlreadyTerminated indicates that the task has already terminated
 	ErrAlreadyTerminated
+	// ErrFailedPrecondition indicates that the task is in a failed precondition state
+	ErrFailedPrecondition
 	// ErrInternal indicates an internal system error
 	ErrInternal
 )
@@ -61,4 +66,28 @@ func IsTaskError(err error) (*TaskError, bool) {
 		return taskErr, true
 	}
 	return nil, false
+}
+
+// handleTaskError converts a TaskError to a gRPC status error
+func TaskErrorToGRPC(err error) error {
+	if taskErr, ok := IsTaskError(err); ok {
+		var code codes.Code
+		switch taskErr.Code {
+		case ErrInvalidArgument:
+			code = codes.InvalidArgument
+		case ErrNotFound:
+			code = codes.NotFound
+		case ErrAlreadyTerminated:
+			code = codes.FailedPrecondition
+		case ErrFailedPrecondition:
+			code = codes.FailedPrecondition
+		case ErrInternal:
+			code = codes.Internal
+		default:
+			code = codes.Internal
+		}
+		return status.Error(code, taskErr.Error())
+	}
+	// If it's not a TaskError, return it as an internal error
+	return status.Error(codes.Internal, err.Error())
 }

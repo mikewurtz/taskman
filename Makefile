@@ -36,7 +36,7 @@ unit-test:
 test-integration:
 	# Run integration tests as root since cgroup creation is privileged
 	@echo "==> Running privileged tests (as root)"
-	go test -c -race -o tests/testbin ./tests && \
+	go test -c -race -o tests/testbin ./tests/integration && \
 	sudo ./tests/testbin -test.v
 
 test-all: unit-test test-integration
@@ -46,7 +46,7 @@ test-integration-specific:
 		echo "Error: specify the test function with FUNC=<TestName>"; \
 		exit 1; \
 	fi; \
-	go test -c -o tests/testbin ./tests && \
+	go test -c -o tests/testbin ./tests/integration && \
 	sudo ./tests/testbin -test.v -test.run "^$(FUNC)$$"
 
 clean:

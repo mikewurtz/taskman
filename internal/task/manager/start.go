@@ -23,7 +23,6 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 		return "", basetask.NewTaskError(basetask.ErrInvalidArgument, "command cannot be empty")
 	}
 
-	cmd := exec.CommandContext(ctx, command, args...)
 	taskID := uuid.New().String()
 
 	// Create cgroup and get file descriptor
@@ -31,6 +30,11 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 	if err != nil {
 		return "", basetask.NewTaskErrorWithErr(basetask.ErrInternal, "failed to create cgroup", err)
 	}
+
+	// exec.CommandContext() calls cmd.Process.Kill() on context cancelation which kills just the first process
+	// and not the entire process group. We want the whole process group to be killed on context cancelation.
+	// So we later call syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) to kill the entire process group.
+	cmd := exec.Command(command, args...)
 
 	// Set process attributes. We set the cgroup fields so the process starts in the cgroup rather than having to move it later
 	// We want the pgid so we can kill the entire process group later
@@ -57,9 +61,6 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 		}
 	}
 
-	// we can now safely close the CgroupFD
-	cgroupFd.Close()
-
 	// Get the process group ID
 	pgid, err := syscall.Getpgid(cmd.Process.Pid)
 	if err != nil {
@@ -67,12 +68,14 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 		pgid = cmd.Process.Pid
 	}
 
+	// we can now safely close the CgroupFD
+	cgroupFd.Close()
 
 	task := &Task{
 		ID:        taskID,
 		StartTime: time.Now(),
 		ClientID:  clientCN.(string),
-		Status:    "JOB_STATUS_STARTED",
+		Status:    basetask.JobStatusStarted,
 		ProcessID: pgid,
 	}
 

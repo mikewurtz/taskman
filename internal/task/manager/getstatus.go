@@ -9,11 +9,9 @@ import (
 )
 
 func (tm *TaskManager) GetTaskStatus(ctx context.Context, taskID string) (*Task, error) {
-	tm.mu.RLock()
-	task, ok := tm.tasksMapByID[taskID]
-	tm.mu.RUnlock()
-	if !ok {
-		return nil, basetask.NewTaskError(basetask.ErrNotFound, fmt.Sprintf("task with id %s not found", taskID), nil)
+	task, err := tm.GetTask(taskID)
+	if err != nil {
+		return nil, err
 	}
 
 	caller := ctx.Value(basegrpc.ClientIDKey).(string)
@@ -40,4 +38,3 @@ func (tm *TaskManager) GetTaskStatus(ctx context.Context, taskID string) (*Task,
 	}
 	return copy, nil
 }
-

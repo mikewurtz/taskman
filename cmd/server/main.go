@@ -22,7 +22,7 @@ var rootCmd = &cobra.Command{
 over a secure mTLS connection.`,
 	Example: `$ taskman-server --server-address localhost:50051`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		server, err := server.New(serverAddr)
+		server, err := server.New(serverAddr, cmd.Context())
 		if err != nil {
 			return fmt.Errorf("failed to initialize server: %w", err)
 		}
@@ -34,16 +34,19 @@ over a secure mTLS connection.`,
 			}
 		}()
 
-		// Set up signal handling for SIGINT and SIGTERM
-		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-		defer stop()
-
 		log.Println("Taskman server is running. Press Ctrl+C to stop.")
 
 		// Use ctx to block until a signal is received:
-		<-ctx.Done()
+		<-cmd.Context().Done()
 		log.Println("Shutdown signal received. Stopping server...")
+
+		// Stop accepting new connections and attempt to clean up all tasks
 		server.Stop()
+
+		// Wait for all tasks to complete
+		log.Println("Waiting for tasks to complete...")
+		server.WaitForTasks()
+
 		log.Println("Server stopped cleanly.")
 		return nil
 	},
@@ -56,7 +59,9 @@ func init() {
 }
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
