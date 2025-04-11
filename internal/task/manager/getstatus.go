@@ -2,7 +2,6 @@ package task
 
 import (
 	"context"
-	"fmt"
 
 	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
 	basetask "github.com/mikewurtz/taskman/internal/task"
@@ -16,7 +15,7 @@ func (tm *TaskManager) GetTaskStatus(ctx context.Context, taskID string) (*Task,
 
 	caller := ctx.Value(basegrpc.ClientIDKey).(string)
 	if task.ClientID != caller && caller != "admin" {
-		return nil, basetask.NewTaskError(basetask.ErrNotFound, fmt.Sprintf("task with id %s not found", taskID), nil)
+		return nil, basetask.NewTaskError(basetask.ErrNotFound, "task with id %s not found", taskID)
 	}
 
 	task.mu.RLock()
