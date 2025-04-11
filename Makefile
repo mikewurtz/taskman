@@ -31,7 +31,7 @@ generate-proto:
 unit-test:
 	# Run unit tests as non-root
 	@echo "==> Running unit tests (non-root)"
-	go test -v -race -cover $$(go list ./... | grep -v 'github.com/mikewurtz/taskman/tests$$')
+	go test -v -race -cover $$(go list ./... | grep -v 'github.com/mikewurtz/taskman/tests/integration$$')
 
 test-integration:
 	# Run integration tests as root since cgroup creation is privileged

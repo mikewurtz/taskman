@@ -133,7 +133,7 @@ func TestIntegration_StartTaskIOThrottled(t *testing.T) {
 
 	// stop the task to clean up after ourselves
 	// the stop request will return ok if the task is stopped with our request
-	// or failed precondition if the task if already completed
+	// or failed precondition if the task is already completed
 	_, err = client.StopTask(ctx, &pb.StopTaskRequest{
 		TaskId: resp.TaskId,
 	})
@@ -186,7 +186,7 @@ func TestIntegration_CPUThrottled_BashLoop(t *testing.T) {
 
 	// stop the task to clean up after ourselves
 	// the stop request will return ok if the task is stopped with our request
-	// or failed precondition if the task if already completed
+	// or failed precondition if the task is already completed
 	_, err = client.StopTask(ctx, &pb.StopTaskRequest{
 		TaskId: resp.TaskId,
 	})

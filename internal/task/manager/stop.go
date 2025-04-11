@@ -20,7 +20,12 @@ func (tm *TaskManager) StopTask(ctx context.Context, taskID string) error {
 
 	}
 
-	if !task.EndTime.IsZero() {
+	// Safely check if task can be stopped
+	task.mu.RLock()
+	alreadyCompleted := !task.EndTime.IsZero()
+	task.mu.RUnlock()
+
+	if alreadyCompleted {
 		return basetask.NewTaskError(basetask.ErrFailedPrecondition, "task has already completed")
 	}
 

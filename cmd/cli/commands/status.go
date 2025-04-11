@@ -59,7 +59,11 @@ Options:
 			return fmt.Errorf("failed to get task status: %w", err)
 		}
 
-		fmt.Println(status.String())
+		if _, logErr := fmt.Fprintf(cmd.OutOrStdout(), "%s\n", status.String()); logErr != nil {
+			// fall back to fmt.Println if logging to cmd.OutOrStdout fails
+			fmt.Println(status.String())
+		}
+
 		return nil
 	},
 }

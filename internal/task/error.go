@@ -68,7 +68,7 @@ func IsTaskError(err error) (*TaskError, bool) {
 	return nil, false
 }
 
-// handleTaskError converts a TaskError to a gRPC status error
+// TaskErrorToGRPC converts a TaskError to a gRPC status error
 func TaskErrorToGRPC(err error) error {
 	if taskErr, ok := IsTaskError(err); ok {
 		var code codes.Code

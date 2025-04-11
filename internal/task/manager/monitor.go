@@ -1,8 +1,6 @@
 package task
 
 import (
-	"context"
-	"errors"
 	"log"
 	"os/exec"
 	"syscall"
@@ -25,7 +23,7 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 	var cmdErr error
 	select {
 	case cmdErr = <-done:
-		// Process completed normally
+		// Process completed either normally or with an error
 	case <-tm.ctx.Done():
 		// Server context was canceled, kill the entire process group
 		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil {
@@ -51,9 +49,17 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 		log.Printf("Failed to get task %s: %v", taskID, err)
 		return
 	}
-
 	task.mu.Lock()
 	defer task.mu.Unlock()
+
+	unknownStatus := false
+	if exitCode == nil && signal == "" {
+		// Unknown failure — ProcessState or WaitStatus was missing or corrupt
+		task.Status = basetask.JobStatusUnknown
+		task.TerminationSource = "unknown"
+		log.Printf("Could not determine how task %s exited", task.ID)
+		unknownStatus = true
+	}
 
 	task.EndTime = finishTime
 	if exitCode != nil {
@@ -62,24 +68,31 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 	}
 	task.TerminationSignal = signal
 
-	if oomKilled, err := cgroups.CheckIfOOMKilled(taskID); err != nil {
-		log.Printf("Failed to check if task %s was OOM killed: %v", taskID, err)
-	} else if oomKilled {
-		// OOM kill overrides whatever status was previously inferred
-		task.Status = basetask.JobStatusSignaled
-		task.TerminationSignal = syscall.SIGKILL.String()
-		task.TerminationSource = "oom"
-		task.ExitCode = nil
-	} else if exitCode != nil {
-		if *exitCode == 0 {
-			task.Status = basetask.JobStatusExitedOK
+	if !unknownStatus {
+		if oomKilled, err := cgroups.CheckIfOOMKilled(taskID); err != nil {
+			log.Printf("Failed to check if task %s was OOM killed: %v", taskID, err)
+		} else if oomKilled {
+			// OOM kill overrides whatever status was previously inferred.
+			// Because we monitor the process group ID, the kernel may have killed a child
+			// process instead. In that case, the PGID process may exit with code 1,
+			// which would incorrectly appear as a regular failure.
+			// To reflect the true cause, we override the status and clear ExitCode.
+			log.Printf("Task %s was OOM killed; overriding status to SIGKILL", task.ID)
+			task.Status = basetask.JobStatusSignaled
+			task.TerminationSignal = syscall.SIGKILL.String()
+			task.TerminationSource = "oom"
+			task.ExitCode = nil
+		} else if exitCode != nil {
+			if *exitCode == 0 {
+				task.Status = basetask.JobStatusExitedOK
+			} else {
+				task.Status = basetask.JobStatusExitedError
+			}
 		} else {
-			task.Status = basetask.JobStatusExitedError
-		}
-	} else {
-		task.Status = basetask.JobStatusSignaled
-		if task.TerminationSource == "" {
-			task.TerminationSource = "system"
+			task.Status = basetask.JobStatusSignaled
+			if task.TerminationSource == "" {
+				task.TerminationSource = "system"
+			}
 		}
 	}
 
@@ -99,48 +112,41 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 func extractProcessExitInfo(cmdErr error, cmd *exec.Cmd) (*int, string) {
 	var exitCode *int
 	var signal string
+	var ws syscall.WaitStatus
+	var ok bool
 
-	if cmdErr != nil {
-		// Handle context-related errors
-		if errors.Is(cmdErr, context.DeadlineExceeded) {
-			log.Printf("Command timed out: %v", cmdErr)
-		} else if errors.Is(cmdErr, context.Canceled) {
-			log.Printf("Command context was canceled: %v", cmdErr)
-		}
-
-		// os.PathError and exec.Error are handled when we call cmd.Start()
+	switch {
+	case cmdErr != nil:
+		// exec.Error and exec.PathError should already be handled on cmd.Start()
 		switch e := cmdErr.(type) {
 		case *exec.ExitError:
-			// Process started but exited with non-zero status or was killed
-			if status, ok := e.Sys().(syscall.WaitStatus); ok {
-				if status.Signaled() {
-					signal = status.Signal().String()
-				} else {
-					code := status.ExitStatus()
-					exitCode = &code
-				}
-			} else {
+			ws, ok = e.Sys().(syscall.WaitStatus)
+			if !ok {
 				log.Printf("Unexpected type in ExitError.Sys(): %T", e.Sys())
+				return nil, ""
 			}
 		default:
 			log.Printf("Unhandled command error type (%T): %v", cmdErr, cmdErr)
+			return nil, ""
 		}
-	} else {
-		// process exited with no error
+	default:
 		if cmd.ProcessState == nil {
 			log.Printf("Missing ProcessState for completed process, cannot extract exit info")
 			return nil, ""
 		}
-		if status, ok := cmd.ProcessState.Sys().(syscall.WaitStatus); ok {
-			if status.Signaled() {
-				signal = status.Signal().String()
-			} else {
-				code := status.ExitStatus()
-				exitCode = &code
-			}
-		} else {
+		ws, ok = cmd.ProcessState.Sys().(syscall.WaitStatus)
+		if !ok {
 			log.Printf("Unexpected type in ProcessState.Sys(): %T", cmd.ProcessState.Sys())
+			return nil, ""
 		}
+	}
+
+	// Extract signal or exit code
+	if ws.Signaled() {
+		signal = ws.Signal().String()
+	} else {
+		code := ws.ExitStatus()
+		exitCode = &code
 	}
 
 	return exitCode, signal

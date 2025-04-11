@@ -1,11 +1,8 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"text/tabwriter"
-	"time"
 
 	"google.golang.org/grpc"
 
@@ -46,59 +43,6 @@ func (m *Manager) StartTask(ctx context.Context, command string, args []string) 
 		return "", fmt.Errorf("error starting task: %w", err)
 	}
 	return resp.TaskId, nil
-}
-
-type TaskStatus struct {
-	TaskID            string
-	Status            string
-	StartTime         time.Time
-	EndTime           time.Time
-	ExitCode          *int32
-	ProcessID         int32
-	TerminationSignal string
-	TerminationSource string
-}
-
-func (t *TaskStatus) String() string {
-	var buf bytes.Buffer
-	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "TASK ID\tSTART TIME\tPID\tSTATUS\tEXIT CODE\tSIGNAL\tSTOP SOURCE\tEND TIME")
-	fmt.Fprintln(w, "-------\t----------\t---\t------\t---------\t------\t-----------\t--------")
-
-	startTime := t.StartTime.Format("2006-01-02 15:04:05")
-
-	endTime := "-"
-	if !t.EndTime.IsZero() {
-		endTime = t.EndTime.Format("2006-01-02 15:04:05")
-	}
-
-	exitStr := "-"
-	if t.ExitCode != nil {
-		exitStr = fmt.Sprintf("%d", *t.ExitCode)
-	}
-
-	signal := t.TerminationSignal
-	if signal == "" {
-		signal = "-"
-	}
-
-	source := t.TerminationSource
-	if source == "" {
-		source = "-"
-	}
-
-	fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
-		t.TaskID,
-		startTime,
-		t.ProcessID,
-		t.Status,
-		exitStr,
-		signal,
-		source,
-		endTime,
-	)
-	w.Flush()
-	return buf.String()
 }
 
 // GetTaskStatus gets the status of a task by its ID

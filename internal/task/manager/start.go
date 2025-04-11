@@ -16,8 +16,8 @@ import (
 )
 
 func (tm *TaskManager) StartTask(ctx context.Context, command string, args []string) (string, error) {
-	clientCN := ctx.Value(basegrpc.ClientIDKey)
-	log.Printf("Starting task for client %s: %s %v", clientCN, command, args)
+	clientID := ctx.Value(basegrpc.ClientIDKey)
+	log.Printf("Starting task for client %s: %s %v", clientID, command, args)
 
 	if command == "" {
 		return "", basetask.NewTaskError(basetask.ErrInvalidArgument, "command cannot be empty")
@@ -33,7 +33,8 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 
 	// exec.CommandContext() calls cmd.Process.Kill() on context cancelation which kills just the first process
 	// and not the entire process group. We want the whole process group to be killed on context cancelation.
-	// So we later call syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) to kill the entire process group.
+	// So we later call syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) to kill the entire process group in the event
+	// of a context cancelation.
 	cmd := exec.Command(command, args...)
 
 	// Set process attributes. We set the cgroup fields so the process starts in the cgroup rather than having to move it later
@@ -74,7 +75,7 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 	task := &Task{
 		ID:        taskID,
 		StartTime: time.Now(),
-		ClientID:  clientCN.(string),
+		ClientID:  clientID.(string),
 		Status:    basetask.JobStatusStarted,
 		ProcessID: pgid,
 	}

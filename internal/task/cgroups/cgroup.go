@@ -12,6 +12,8 @@ import (
 
 const baseCgroupPath = "/sys/fs/cgroup/"
 
+// CreateCgroupForTask creates a cgroup for a task
+// In a real system, we would want the cgroup config to be configurable
 func CreateCgroupForTask(taskID string) (*os.File, error) {
 	cgroupPath := filepath.Join(baseCgroupPath, taskID)
 
@@ -20,6 +22,7 @@ func CreateCgroupForTask(taskID string) (*os.File, error) {
 	}
 
 	// Configure CPU limits: Quota 200000 µs and Period 1000000 µs.
+	// this should cap the cpu usage to 20%
 	cpuMaxPath := filepath.Join(cgroupPath, "cpu.max")
 	cpuConfig := "200000 1000000"
 	if err := os.WriteFile(cpuMaxPath, []byte(cpuConfig), 0644); err != nil {
@@ -65,19 +68,20 @@ func RemoveCgroupForTask(taskID string) error {
 		case <-ticker.C:
 			// attempt to remove the cgroup directory
 			if err := os.Remove(cgroupPath); err != nil {
-				// If the error is due to the directory not being empty or busy, continue waiting.
+				// If the error is due to the directory not being empty or busy, continue waiting
 				if errors.Is(err, syscall.ENOTEMPTY) || errors.Is(err, syscall.EBUSY) {
 					continue
 				}
-				// For any other error, return immediately.
+				// For any other error, return immediately
 				return fmt.Errorf("failed to remove cgroup directory %s: %w", cgroupPath, err)
 			}
-			// Successfully removed the directory.
+			// Successfully removed the directory
 			return nil
 		}
 	}
 }
 
+// CheckIfOOMKilled checks if the task has been OOM killed
 func CheckIfOOMKilled(taskID string) (bool, error) {
 	cgroupPath := filepath.Join(baseCgroupPath, taskID)
 	oomPath := filepath.Join(cgroupPath, "memory.events")
