@@ -46,14 +46,24 @@ func (m *Manager) StartTask(ctx context.Context, command string, args []string) 
 }
 
 // GetTaskStatus gets the status of a task by its ID
-func (m *Manager) GetTaskStatus(ctx context.Context, taskID string) error {
-	_, err := m.client.GetTaskStatus(ctx, &pb.TaskStatusRequest{TaskId: taskID})
+func (m *Manager) GetTaskStatus(ctx context.Context, taskID string) (*TaskStatus, error) {
+	pbStatus, err := m.client.GetTaskStatus(ctx, &pb.TaskStatusRequest{TaskId: taskID})
 	if err != nil {
-		return fmt.Errorf("error getting task status: %w", err)
+		return nil, fmt.Errorf("error getting task status: %w", err)
 	}
 
-	// TODO handle task status ouput once implemented
-	return nil
+	returnStatus := &TaskStatus{
+		TaskID:            pbStatus.TaskId,
+		Status:            pbStatus.Status.String(),
+		StartTime:         pbStatus.StartTime.AsTime(),
+		EndTime:           pbStatus.EndTime.AsTime(),
+		ExitCode:          pbStatus.ExitCode,
+		ProcessID:         pbStatus.ProcessId,
+		TerminationSignal: pbStatus.TerminationSignal,
+		TerminationSource: pbStatus.TerminationSource,
+	}
+
+	return returnStatus, nil
 }
 
 // StreamTaskOutput streams the output of a task by its ID

@@ -1,4 +1,4 @@
-.PHONY: all lint build build-race generate-proto test clean
+.PHONY: all lint build build-race generate-proto test clean unit-test test-integration test-all test-integration-specific
 
 BINDIR      := bin
 CMD_CLI     := cmd/cli/main.go
@@ -28,8 +28,26 @@ generate-proto:
 		--go-grpc_out=$(GEN_DIR) --go-grpc_opt=paths=source_relative \
 		$(PROTO_FILE)
 
-test:
-	go test -v -race -cover ./...
+unit-test:
+	# Run unit tests as non-root
+	@echo "==> Running unit tests (non-root)"
+	go test -v -race -cover $$(go list ./... | grep -v 'github.com/mikewurtz/taskman/tests/integration$$')
+
+test-integration:
+	# Run integration tests as root since cgroup creation is privileged
+	@echo "==> Running privileged tests (as root)"
+	go test -c -race -o tests/testbin ./tests/integration && \
+	sudo ./tests/testbin -test.v
+
+test-all: unit-test test-integration
+
+test-integration-specific:
+	@if [ -z "$(FUNC)" ]; then \
+		echo "Error: specify the test function with FUNC=<TestName>"; \
+		exit 1; \
+	fi; \
+	go test -c -o tests/testbin ./tests/integration && \
+	sudo ./tests/testbin -test.v -test.run "^$(FUNC)$$"
 
 clean:
 	rm -rf $(BINDIR) $(GEN_DIR)
