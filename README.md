@@ -11,8 +11,10 @@ make build
 
 Running the server:
 
+Note: Server needs sudo privileges in order to create and configure cgroups
+
 ```
-$ ./bin/taskman-server
+$ sudo ./bin/taskman-server
 ```
 
 Running CLI commands:
@@ -35,4 +37,25 @@ $ ./bin/taskman --user-id client001 --server-address localhost:50051 stream 123e
 Stop a task
 ```
 $ ./bin/taskman --user-id client001 --server-address localhost:50053 stop 123e4567-e89b-12d3-a456-426614174000
+```
+
+# Running unit tests
+Run unit tests
+```
+$ make unit-test
+```
+
+Run integration tests
+```
+$ make test-all
+```
+
+Run specific integration test
+```
+$ make test-integration-specific FUNC=TestIntegration_CPUThrottled_BashLoop
+```
+
+Run all tests
+```
+$ make test-all
 ```

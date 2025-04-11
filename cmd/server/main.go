@@ -41,11 +41,8 @@ over a secure mTLS connection.`,
 		log.Println("Shutdown signal received. Stopping server...")
 
 		// Stop accepting new connections and attempt to clean up all tasks
-		server.Stop()
+		server.Shutdown()
 
-		// Wait for all tasks to complete
-		log.Println("Waiting for tasks to complete...")
-		server.WaitForTasks()
 
 		log.Println("Server stopped cleanly.")
 		return nil

@@ -37,7 +37,7 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 	finishTime := time.Now()
 
 	if cmdErr != nil {
-		log.Printf("Task %s failed: %v", taskID, cmdErr)
+		log.Printf("Task %s exited with an error: %v", taskID, cmdErr)
 	} else {
 		log.Printf("Task %s completed successfully", taskID)
 	}
@@ -89,7 +89,9 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 	}
 
 	// Signal that this task is done
-	close(task.done)
+	task.doOnce.Do(func() {
+		close(task.done)
+	})
 }
 
 // extractProcessExitInfo extracts the exit code and signal from the command error

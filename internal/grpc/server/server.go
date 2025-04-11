@@ -81,10 +81,10 @@ func (s *Server) Addr() string {
 	return ""
 }
 
-func (s *Server) Stop() {
+func (s *Server) Shutdown() {
+	log.Println("Shutting down gRPC server...")
 	s.grpcServer.GracefulStop()
-}
 
-func (s *Server) WaitForTasks() {
+	log.Println("Waiting for all tasks to complete...")
 	s.taskServer.taskManager.WaitForTasks()
 }

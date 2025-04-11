@@ -27,6 +27,7 @@ type Task struct {
 	TerminationSource string
 	EndTime           time.Time
 	done              chan struct{}
+	doOnce            sync.Once
 }
 
 func NewTaskManager(ctx context.Context) *TaskManager {

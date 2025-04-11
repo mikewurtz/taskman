@@ -40,9 +40,8 @@ func TestMain(m *testing.M) {
 	}
 
 	code := m.Run()
-	if stopServer != nil {
-		stopServer()
-	}
+	// attempt to shut down and clean up any remaining tasks
+	stopServer()
 	os.Exit(code)
 }
 
@@ -61,7 +60,7 @@ func startTestServer() (func(), error) {
 	}()
 
 	stopServer := func() {
-		srv.Stop()
+		srv.Shutdown()
 	}
 
 	testServerAddr = srv.Addr()
