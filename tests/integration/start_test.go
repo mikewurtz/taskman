@@ -139,7 +139,7 @@ func TestIntegration_StartTaskWithFullPath(t *testing.T) {
 		Command: "/bin/ls",
 		Args:    []string{"-l"},
 	})
-	assert.NotNil(t, resp)
+	require.NotNil(t, resp)
 	assert.NotEmpty(t, resp.TaskId)
 	require.NoError(t, err)
 	sts, ok := status.FromError(err)
