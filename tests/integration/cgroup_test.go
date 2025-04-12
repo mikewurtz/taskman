@@ -49,12 +49,12 @@ func TestIntegration_StartTaskOOMKilledPerl(t *testing.T) {
 		Command: "perl",
 		Args:    []string{"-e", "my $x = \"A\" x (128 * 1024 * 1024); sleep 5;"},
 	})
-	assert.NotNil(t, resp)
-	assert.NotEmpty(t, resp.TaskId)
+	require.NotNil(t, resp)
+	require.NotEmpty(t, resp.TaskId)
 	require.NoError(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
-	assert.Equal(t, codes.OK, sts.Code())
+	require.Equal(t, codes.OK, sts.Code())
 
 	var statusResp *pb.TaskStatusResponse
 	require.Eventually(t, func() bool {
@@ -95,7 +95,7 @@ func TestIntegration_StartTaskIOThrottled(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.NotEmpty(t, resp.TaskId)
+	require.NotEmpty(t, resp.TaskId)
 
 	require.Eventually(t, func() bool {
 
@@ -138,8 +138,8 @@ func TestIntegration_StartTaskIOThrottled(t *testing.T) {
 		TaskId: resp.TaskId,
 	})
 	sts, ok := status.FromError(err)
-	require.True(t, ok)
-	require.True(t, sts.Code() == codes.OK || sts.Code() == codes.FailedPrecondition)
+	assert.True(t, ok)
+	assert.True(t, sts.Code() == codes.OK || sts.Code() == codes.FailedPrecondition)
 }
 
 func TestIntegration_CPUThrottled_BashLoop(t *testing.T) {
@@ -157,7 +157,7 @@ func TestIntegration_CPUThrottled_BashLoop(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.NotEmpty(t, resp.TaskId)
+	require.NotEmpty(t, resp.TaskId)
 
 	var (
 		statusResp *pb.TaskStatusResponse
@@ -191,6 +191,6 @@ func TestIntegration_CPUThrottled_BashLoop(t *testing.T) {
 		TaskId: resp.TaskId,
 	})
 	sts, ok := status.FromError(err)
-	require.True(t, ok)
-	require.True(t, sts.Code() == codes.OK || sts.Code() == codes.FailedPrecondition)
+	assert.True(t, ok)
+	assert.True(t, sts.Code() == codes.OK || sts.Code() == codes.FailedPrecondition)
 }

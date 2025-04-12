@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
 	"github.com/mikewurtz/taskman/internal/task"
 	taskmanager "github.com/mikewurtz/taskman/internal/task/manager"
 )
@@ -36,6 +37,14 @@ func (s *taskManagerServer) StartTask(ctx context.Context, req *pb.StartTaskRequ
 
 // StopTask
 func (s *taskManagerServer) StopTask(ctx context.Context, req *pb.StopTaskRequest) (*pb.StopTaskResponse, error) {
+	taskObj, err := s.taskManager.GetTask(ctx, req.TaskId)
+	if err != nil {
+		return nil, task.TaskErrorToGRPC(err)
+	}
+	caller := ctx.Value(basegrpc.ClientIDKey).(string)
+	if err = checkAuthorization(caller, taskObj); err != nil {
+		return nil, err
+	}
 	if err := s.taskManager.StopTask(ctx, req.TaskId); err != nil {
 		return nil, task.TaskErrorToGRPC(err)
 	}
@@ -44,27 +53,38 @@ func (s *taskManagerServer) StopTask(ctx context.Context, req *pb.StopTaskReques
 
 // GetTaskStatus
 func (s *taskManagerServer) GetTaskStatus(ctx context.Context, req *pb.TaskStatusRequest) (*pb.TaskStatusResponse, error) {
-	taskObj, err := s.taskManager.GetTaskStatus(ctx, req.TaskId)
+	taskObj, err := s.taskManager.GetTask(ctx, req.TaskId)
 	if err != nil {
 		return nil, task.TaskErrorToGRPC(err)
 	}
-	status, err := task.StatusToProto(taskObj.Status)
+	caller := ctx.Value(basegrpc.ClientIDKey).(string)
+	if err = checkAuthorization(caller, taskObj); err != nil {
+		return nil, err
+	}
+	status, err := task.StatusToProto(taskObj.GetStatus())
 	if err != nil {
 		return nil, task.TaskErrorToGRPC(err)
 	}
 
 	returnStatus := &pb.TaskStatusResponse{
-		TaskId:            taskObj.ID,
-		ProcessId:         int32(taskObj.ProcessID),
+		TaskId:            taskObj.GetID(),
+		ProcessId:         int32(taskObj.GetProcessID()),
 		Status:            status,
-		StartTime:         timestamppb.New(taskObj.StartTime),
-		EndTime:           timestamppb.New(taskObj.EndTime),
-		ExitCode:          taskObj.ExitCode,
-		TerminationSignal: taskObj.TerminationSignal,
-		TerminationSource: taskObj.TerminationSource,
+		StartTime:         timestamppb.New(taskObj.GetStartTime()),
+		EndTime:           timestamppb.New(taskObj.GetEndTime()),
+		ExitCode:          taskObj.GetExitCode(),
+		TerminationSignal: taskObj.GetTerminationSignal(),
+		TerminationSource: taskObj.GetTerminationSource(),
 	}
 
 	return returnStatus, nil
+}
+
+func checkAuthorization(caller string, taskObj *taskmanager.Task) error {
+	if taskObj.GetClientID() != caller && caller != "admin" {
+		return status.Errorf(codes.NotFound, "task with id %s not found", taskObj.GetID())
+	}
+	return nil
 }
 
 // StreamTaskOutput

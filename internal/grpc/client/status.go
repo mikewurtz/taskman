@@ -3,8 +3,9 @@ package client
 import (
 	"bytes"
 	"fmt"
-	"text/tabwriter"
 	"time"
+
+	"github.com/olekukonko/tablewriter"
 )
 
 type TaskStatus struct {
@@ -41,27 +42,27 @@ func formatString(s string) string {
 
 func (t *TaskStatus) String() string {
 	var buf bytes.Buffer
-	w := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "TASK ID\tSTART TIME\tPID\tSTATUS\tEXIT CODE\tSIGNAL\tSTOP SOURCE\tEND TIME")
-	fmt.Fprintln(w, "-------\t----------\t---\t------\t---------\t------\t-----------\t--------")
+	table := tablewriter.NewWriter(&buf)
+	table.SetHeader([]string{
+		"TASK ID", "START TIME", "PID", "STATUS", "EXIT CODE", "SIGNAL", "STOP SOURCE", "END TIME",
+	})
+	table.SetAutoWrapText(true)
+	table.SetBorder(true)
+	table.SetHeaderAlignment(tablewriter.ALIGN_CENTER)
+	table.SetAlignment(tablewriter.ALIGN_CENTER)
 
-	startTime := t.StartTime.Format("2006-01-02 15:04:05")
-
-	endTime := formatTime(t.EndTime)
-	exitStr := formatExitCode(t.ExitCode)
-	signal := formatString(t.TerminationSignal)
-	source := formatString(t.TerminationSource)
-
-	fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\n",
+	row := []string{
 		t.TaskID,
-		startTime,
-		t.ProcessID,
+		t.StartTime.Format("2006-01-02 15:04:05"),
+		fmt.Sprintf("%d", t.ProcessID),
 		t.Status,
-		exitStr,
-		signal,
-		source,
-		endTime,
-	)
-	w.Flush()
+		formatExitCode(t.ExitCode),
+		formatString(t.TerminationSignal),
+		formatString(t.TerminationSource),
+		formatTime(t.EndTime),
+	}
+
+	table.Append(row)
+	table.Render()
 	return buf.String()
 }

@@ -16,20 +16,20 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 	// Create a channel to receive the process completion
 	errC := make(chan error, 1)
 	go func() {
-		done <- cmd.Wait()
+		errC <- cmd.Wait()
 	}()
 
 	// Wait for either the process to complete or the context to be canceled
 	var cmdErr error
 	select {
-	case cmdErr = <-done:
+	case cmdErr = <-errC:
 		// Process completed either normally or with an error
 	case <-tm.ctx.Done():
 		// Server context was canceled, kill the entire process group
 		if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil {
 			log.Printf("Failed to kill process group %d: %v", cmd.Process.Pid, err)
 		}
-		cmdErr = <-done
+		cmdErr = <-errC
 	}
 
 	finishTime := time.Now()
@@ -44,29 +44,27 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 	var signal string
 	exitCode, signal = extractProcessExitInfo(cmdErr, cmd)
 
-	task, err := tm.GetTask(taskID)
+	task, err := tm.getTaskFromMap(taskID)
 	if err != nil {
 		log.Printf("Failed to get task %s: %v", taskID, err)
 		return
 	}
-	task.mu.Lock()
-	defer task.mu.Unlock()
 
 	unknownStatus := false
 	if exitCode == nil && signal == "" {
 		// Unknown failure — ProcessState or WaitStatus was missing or corrupt
-		task.Status = basetask.JobStatusUnknown
-		task.TerminationSource = "unknown"
-		log.Printf("Could not determine how task %s exited", task.ID)
+		task.SetStatus(basetask.JobStatusUnknown)
+		task.SetTerminationSource("unknown")
+		log.Printf("Could not determine how task %s exited", task.GetID())
 		unknownStatus = true
 	}
 
-	task.EndTime = finishTime
+	task.SetEndTime(finishTime)
 	if exitCode != nil {
 		ec := int32(*exitCode)
-		task.ExitCode = &ec
+		task.SetExitCode(&ec)
 	}
-	task.TerminationSignal = signal
+	task.SetTerminationSignal(signal)
 
 	if !unknownStatus {
 		if oomKilled, err := cgroups.CheckIfOOMKilled(taskID); err != nil {
@@ -77,21 +75,21 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 			// process instead. In that case, the PGID process may exit with code 1,
 			// which would incorrectly appear as a regular failure.
 			// To reflect the true cause, we override the status and clear ExitCode.
-			log.Printf("Task %s was OOM killed; overriding status to SIGKILL", task.ID)
-			task.Status = basetask.JobStatusSignaled
-			task.TerminationSignal = syscall.SIGKILL.String()
-			task.TerminationSource = "oom"
-			task.ExitCode = nil
+			log.Printf("Task %s was OOM killed; overriding status to SIGKILL", task.GetID())
+			task.SetStatus(basetask.JobStatusSignaled)
+			task.SetTerminationSignal(syscall.SIGKILL.String())
+			task.SetTerminationSource("oom")
+			task.SetExitCode(nil)
 		} else if exitCode != nil {
 			if *exitCode == 0 {
-				task.Status = basetask.JobStatusExitedOK
+				task.SetStatus(basetask.JobStatusExitedOK)
 			} else {
-				task.Status = basetask.JobStatusExitedError
+				task.SetStatus(basetask.JobStatusExitedError)
 			}
 		} else {
-			task.Status = basetask.JobStatusSignaled
-			if task.TerminationSource == "" {
-				task.TerminationSource = "system"
+			task.SetStatus(basetask.JobStatusSignaled)
+			if task.GetTerminationSignal() == "" {
+				task.SetTerminationSource("system")
 			}
 		}
 	}
@@ -102,9 +100,8 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 	}
 
 	// Signal that this task is done
-	task.doOnce.Do(func() {
-		close(task.done)
-	})
+	close(task.done)
+
 }
 
 // extractProcessExitInfo extracts the exit code and signal from the command error

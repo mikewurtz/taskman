@@ -59,18 +59,10 @@ func NewTaskErrorWithErr(code ErrorCode, format string, err error, args ...any) 
 	}
 }
 
-// IsTaskError checks if an error is a TaskError
-func IsTaskError(err error) (*TaskError, bool) {
-	var taskErr *TaskError
-	if errors.As(err, &taskErr) {
-		return taskErr, true
-	}
-	return nil, false
-}
-
 // TaskErrorToGRPC converts a TaskError to a gRPC status error
 func TaskErrorToGRPC(err error) error {
-	if taskErr, ok := IsTaskError(err); ok {
+	var taskErr *TaskError
+	if errors.As(err, &taskErr) {
 		var code codes.Code
 		switch taskErr.Code {
 		case ErrInvalidArgument:

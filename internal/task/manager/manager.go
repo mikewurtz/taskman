@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -15,21 +16,6 @@ type TaskManager struct {
 	ctx          context.Context
 }
 
-type Task struct {
-	mu                sync.RWMutex
-	ID                string
-	ClientID          string
-	ProcessID         int
-	Status            int
-	StartTime         time.Time
-	ExitCode          *int32
-	TerminationSignal string
-	TerminationSource string
-	EndTime           time.Time
-	done              chan struct{}
-	doOnce            sync.Once
-}
-
 func NewTaskManager(ctx context.Context) *TaskManager {
 	return &TaskManager{
 		tasksMapByID: make(map[string]*Task),
@@ -37,14 +23,15 @@ func NewTaskManager(ctx context.Context) *TaskManager {
 	}
 }
 
-func (tm *TaskManager) AddTask(task *Task) {
+func (tm *TaskManager) addTask(task *Task) {
 	tm.mu.Lock()
 	defer tm.mu.Unlock()
 	task.done = make(chan struct{})
-	tm.tasksMapByID[task.ID] = task
+	tm.tasksMapByID[task.GetID()] = task
 }
 
-func (tm *TaskManager) WaitForTasks() {
+// WaitForTasks waits for all tasks to complete with a timeout
+func (tm *TaskManager) WaitForTasks() error {
 	tm.mu.RLock()
 	tasks := make([]*Task, 0, len(tm.tasksMapByID))
 	for _, task := range tm.tasksMapByID {
@@ -52,12 +39,22 @@ func (tm *TaskManager) WaitForTasks() {
 	}
 	tm.mu.RUnlock()
 
+	// 30 seconds should be plenty of time for tasks to terminate and clean up
+	timeout := time.After(30 * time.Second)
+
 	for _, task := range tasks {
-		<-task.done
+		select {
+		case <-task.done:
+			continue
+		case <-timeout:
+			return fmt.Errorf("timeout waiting for tasks to complete")
+		}
 	}
+
+	return nil
 }
 
-func (tm *TaskManager) GetTask(taskID string) (*Task, error) {
+func (tm *TaskManager) getTaskFromMap(taskID string) (*Task, error) {
 	tm.mu.RLock()
 	defer tm.mu.RUnlock()
 	task, ok := tm.tasksMapByID[taskID]

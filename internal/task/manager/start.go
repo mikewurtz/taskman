@@ -15,6 +15,7 @@ import (
 	"github.com/mikewurtz/taskman/internal/task/cgroups"
 )
 
+// StartTask starts a new task with the given command and arguments
 func (tm *TaskManager) StartTask(ctx context.Context, command string, args []string) (string, error) {
 	clientID := ctx.Value(basegrpc.ClientIDKey)
 	log.Printf("Starting task for client %s: %s %v", clientID, command, args)
@@ -28,6 +29,11 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 	// Create cgroup and get file descriptor
 	cgroupFd, err := cgroups.CreateCgroupForTask(taskID)
 	if err != nil {
+		// if we fail to create the cgroup, try to remove it
+		err = cgroups.RemoveCgroupForTask(taskID)
+		if err != nil {
+			log.Printf("failed to remove cgroup %s: %v", taskID, err)
+		}
 		return "", basetask.NewTaskErrorWithErr(basetask.ErrInternal, "failed to create cgroup", err)
 	}
 
@@ -62,25 +68,19 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 		}
 	}
 
+	startTime := time.Now()
 	// Get the process group ID
 	pgid, err := syscall.Getpgid(cmd.Process.Pid)
 	if err != nil {
 		// if we fail to get pgid fallback to PID
 		pgid = cmd.Process.Pid
 	}
-
 	// we can now safely close the CgroupFD
 	cgroupFd.Close()
 
-	task := &Task{
-		ID:        taskID,
-		StartTime: time.Now(),
-		ClientID:  clientID.(string),
-		Status:    basetask.JobStatusStarted,
-		ProcessID: pgid,
-	}
-
-	tm.AddTask(task)
+	// Create the new task and add it to the task manager
+	task := CreateNewTask(taskID, clientID.(string), pgid, startTime)
+	tm.addTask(task)
 
 	// Start monitoring the process
 	go tm.monitorProcess(taskID, cmd)

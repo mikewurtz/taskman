@@ -61,9 +61,8 @@ Options:
 
 		if _, logErr := fmt.Fprintf(cmd.OutOrStdout(), "%s\n", status.String()); logErr != nil {
 			// fall back to fmt.Println if logging to cmd.OutOrStdout fails
-			fmt.Println(status.String())
+			return fmt.Errorf("failed to print task status: %w", logErr)
 		}
-
 		return nil
 	},
 }

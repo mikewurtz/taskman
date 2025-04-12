@@ -22,7 +22,7 @@ func TestIntegration_GetTaskStatusContextTimeout(t *testing.T) {
 		Command: "ls",
 		Args:    []string{"-l"},
 	})
-	assert.Nil(t, resp)
+	require.Nil(t, resp)
 	require.Error(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
@@ -40,7 +40,7 @@ func TestIntegration_GetTaskStatusContextCanceled(t *testing.T) {
 	resp, err := client.GetTaskStatus(ctx, &pb.TaskStatusRequest{
 		TaskId: "375b0522-72ed-4f3f-88d0-01d360d06b8c",
 	})
-	assert.Nil(t, resp)
+	require.Nil(t, resp)
 	require.Error(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
@@ -58,7 +58,7 @@ func TestIntegration_GetTaskStatusDoesNotExist(t *testing.T) {
 	resp, err := client.GetTaskStatus(ctx, &pb.TaskStatusRequest{
 		TaskId: "375b0522-72ed-4f3f-88d0-01d360d06b8c",
 	})
-	assert.Nil(t, resp)
+	require.Nil(t, resp)
 	require.Error(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)

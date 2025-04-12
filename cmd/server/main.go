@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -22,7 +23,7 @@ var rootCmd = &cobra.Command{
 over a secure mTLS connection.`,
 	Example: `$ taskman-server --server-address localhost:50051`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		server, err := server.New(serverAddr, cmd.Context())
+		server, err := server.New(cmd.Context(), serverAddr)
 		if err != nil {
 			return fmt.Errorf("failed to initialize server: %w", err)
 		}
@@ -54,11 +55,52 @@ func init() {
 
 }
 
+// checkCgroupV2Controllers checks if the provided cgroup v2 controllers are enabled
+// Example call: checkCgroupV2Controllers("/sys/fs/cgroup/cgroup.subtree_control", []string{"cpu", "memory", "io"})
+func checkCgroupV2Controllers(path string, required []string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", path, err)
+	}
+
+	enabled := strings.Fields(string(data))
+	controllerSet := make(map[string]bool)
+	for _, ctrl := range enabled {
+		controllerSet[ctrl] = true
+	}
+
+	var missing []string
+	for _, ctrl := range required {
+		if !controllerSet[ctrl] {
+			missing = append(missing, ctrl)
+		}
+	}
+
+	return missing, nil
+}
+
 func main() {
+	// First check if the cgroup v2 controllers are enabled
+	missing, err := checkCgroupV2Controllers("/sys/fs/cgroup/cgroup.subtree_control", []string{"cpu", "memory", "io"})
+	if err != nil {
+		log.Printf("failed to check cgroup v2 controllers: %v", err)
+		os.Exit(1)
+	}
+
+	if len(missing) > 0 {
+		for _, ctrl := range missing {
+			log.Printf(`cgroup v2 controller %s not enabled. To enable it, run:
+			  echo "+%s" | sudo tee /sys/fs/cgroup/cgroup.subtree_control`, ctrl, ctrl)
+		}
+		os.Exit(1)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		log.Println(err)
+		// Call stop directly to ensure the context is stopped before we exit
+		stop()
 		os.Exit(1)
 	}
 }

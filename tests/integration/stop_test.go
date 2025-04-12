@@ -22,7 +22,7 @@ func TestIntegration_StopTaskContextCanceled(t *testing.T) {
 	resp, err := client.StopTask(ctx, &pb.StopTaskRequest{
 		TaskId: "375b0522-72ed-4f3f-88d0-01d360d06b8c",
 	})
-	assert.Nil(t, resp)
+	require.Nil(t, resp)
 	require.Error(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
@@ -40,7 +40,7 @@ func TestIntegration_StopTaskDoesNotExist(t *testing.T) {
 	resp, err := client.StopTask(ctx, &pb.StopTaskRequest{
 		TaskId: "375b0522-72ed-4f3f-88d0-01d360d06b8c",
 	})
-	assert.Nil(t, resp)
+	require.Nil(t, resp)
 	require.Error(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)

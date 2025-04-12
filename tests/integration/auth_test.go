@@ -25,7 +25,7 @@ func TestIntegration_NoCNInKeyUnary(t *testing.T) {
 	resp, err := client.StopTask(ctx, &pb.StopTaskRequest{
 		TaskId: "375b0522-72ed-4f3f-88d0-01d360d06b8c",
 	})
-	assert.Nil(t, resp)
+	require.Nil(t, resp)
 	require.Error(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
@@ -47,7 +47,7 @@ func TestIntegration_NoCNInKeyStream(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := stream.Recv()
-	assert.Nil(t, resp)
+	require.Nil(t, resp)
 	require.Error(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
@@ -67,7 +67,7 @@ func TestIntegration_SelfSignedCertNoCA(t *testing.T) {
 	resp, err := client.StopTask(ctx, &pb.StopTaskRequest{
 		TaskId: "375b0522-72ed-4f3f-88d0-01d360d06b8c",
 	})
-	assert.Nil(t, resp)
+	require.Nil(t, resp)
 	require.Error(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
@@ -86,7 +86,7 @@ func TestIntegration_WeakKey512(t *testing.T) {
 	resp, err := client.StopTask(ctx, &pb.StopTaskRequest{
 		TaskId: "375b0522-72ed-4f3f-88d0-01d360d06b8c",
 	})
-	assert.Nil(t, resp)
+	require.Nil(t, resp)
 	require.Error(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
@@ -104,12 +104,12 @@ func TestIntegration_StartTaskTestAuthorization(t *testing.T) {
 	resp, err := client.StartTask(ctx, &pb.StartTaskRequest{
 		Command: "ls",
 	})
-	assert.NotNil(t, resp)
-	assert.NotEmpty(t, resp.TaskId)
+	require.NotNil(t, resp)
+	require.NotEmpty(t, resp.TaskId)
 	require.NoError(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
-	assert.Equal(t, codes.OK, sts.Code())
+	require.Equal(t, codes.OK, sts.Code())
 
 	// try to get the task status using a different client
 	client2 := createTestClient(t, "client002")

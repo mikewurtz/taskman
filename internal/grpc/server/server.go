@@ -24,7 +24,7 @@ type Server struct {
 
 // New sets up the gRPC server and listener with mTLS authentication using TLS v1.3
 // Includes interceptors for injecting the client CN into the context for unary and stream calls
-func New(serverAddr string, ctx context.Context) (*Server, error) {
+func New(ctx context.Context, serverAddr string) (*Server, error) {
 	cert, err := basegrpc.LoadTLSCert(certs.ServerCertName)
 	if err != nil {
 		return nil, fmt.Errorf("loading server cert: %w", err)
@@ -86,5 +86,8 @@ func (s *Server) Shutdown() {
 	s.grpcServer.GracefulStop()
 
 	log.Println("Waiting for all tasks to complete...")
-	s.taskServer.taskManager.WaitForTasks()
+	err := s.taskServer.taskManager.WaitForTasks()
+	if err != nil {
+		log.Printf("Error waiting for tasks to complete: %v", err)
+	}
 }

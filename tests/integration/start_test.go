@@ -25,7 +25,7 @@ func TestIntegration_StartTaskContextCanceled(t *testing.T) {
 		Command: "ls",
 		Args:    []string{"-l"},
 	})
-	assert.Nil(t, resp)
+	require.Nil(t, resp)
 	require.Error(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
@@ -119,8 +119,8 @@ func TestIntegration_StartTask(t *testing.T) {
 		Command: "ls",
 		Args:    []string{"-l"},
 	})
-	assert.NotNil(t, resp)
-	assert.NotEmpty(t, resp.TaskId)
+	require.NotNil(t, resp)
+	require.NotEmpty(t, resp.TaskId)
 	require.NoError(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
@@ -140,7 +140,7 @@ func TestIntegration_StartTaskWithFullPath(t *testing.T) {
 		Args:    []string{"-l"},
 	})
 	require.NotNil(t, resp)
-	assert.NotEmpty(t, resp.TaskId)
+	require.NotEmpty(t, resp.TaskId)
 	require.NoError(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
@@ -159,8 +159,8 @@ func TestIntegration_StartTaskStopImmediately(t *testing.T) {
 		Command: "sleep",
 		Args:    []string{"5"},
 	})
-	assert.NotNil(t, resp)
-	assert.NotEmpty(t, resp.TaskId)
+	require.NotNil(t, resp)
+	require.NotEmpty(t, resp.TaskId)
 	require.NoError(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
@@ -211,8 +211,8 @@ func TestIntegration_StartTaskStopImmediatelyAttemptToStopAgain(t *testing.T) {
 		Command: "sleep",
 		Args:    []string{"5"},
 	})
-	assert.NotNil(t, resp)
-	assert.NotEmpty(t, resp.TaskId)
+	require.NotNil(t, resp)
+	require.NotEmpty(t, resp.TaskId)
 	require.NoError(t, err)
 	sts, ok := status.FromError(err)
 	require.True(t, ok)
