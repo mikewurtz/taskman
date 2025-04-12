@@ -14,7 +14,7 @@ import (
 // monitorProcess handles the process completion and status updates
 func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 	// Create a channel to receive the process completion
-	done := make(chan error, 1)
+	errC := make(chan error, 1)
 	go func() {
 		done <- cmd.Wait()
 	}()
