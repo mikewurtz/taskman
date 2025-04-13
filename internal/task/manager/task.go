@@ -1,6 +1,7 @@
 package task
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -22,18 +23,33 @@ type Task struct {
 	terminationSource string
 	endTime           time.Time
 	done              chan struct{}
+
+	writer *TaskWriter
 }
 
 // NewTask creates a new task
-func CreateNewTask(id, clientID string, pid int, startTime time.Time) *Task {
-	return &Task{
+func CreateNewTask(id, clientID string, pid int, startTime time.Time, writer *TaskWriter) *Task {
+	t := &Task{
 		id:        id,
 		clientID:  clientID,
 		processID: pid,
 		startTime: startTime,
 		status:    basetask.JobStatusStarted,
 		done:      make(chan struct{}),
+		writer:    writer,
 	}
+	return t
+}
+
+func (t *Task) GetWriter() *TaskWriter {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.writer
+}
+
+// Update ReadOutput to delegate to TaskWriter
+func (t *Task) ReadOutput(ctx context.Context, offset int64) ([]byte, int64, error) {
+    return t.writer.ReadOutput(ctx, offset)
 }
 
 // GetID returns the task ID

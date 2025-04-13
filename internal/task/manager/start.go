@@ -51,6 +51,12 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 		CgroupFD:    int(cgroupFd.Fd()),
 	}
 
+	writer := NewTaskWriter()
+	// Set up output capture
+	cmd.Stdout = writer
+	cmd.Stderr = writer
+	
+
 	// Start the process
 	if err := cmd.Start(); err != nil {
 		// clean up the cgroup so it doesn't leak
@@ -79,7 +85,7 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 	cgroupFd.Close()
 
 	// Create the new task and add it to the task manager
-	task := CreateNewTask(taskID, clientID.(string), pgid, startTime)
+	task := CreateNewTask(taskID, clientID.(string), pgid, startTime, writer)
 	tm.addTask(task)
 
 	// Start monitoring the process

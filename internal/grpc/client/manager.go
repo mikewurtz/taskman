@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 	"fmt"
+	"io"
+	"os"
 
 	"google.golang.org/grpc"
 
@@ -73,13 +75,21 @@ func (m *Manager) StreamTaskOutput(ctx context.Context, taskID string) error {
 		return fmt.Errorf("error starting output stream: %w", err)
 	}
 
-	// TODO handle output stream once implemented
-	_, err = stream.Recv()
-	if err != nil {
-		return fmt.Errorf("error receiving from stream: %w", err)
-	}
+	for {
+		resp, err := stream.Recv()
+		if err == io.EOF {
+			// Stream completed normally
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("error receiving from stream: %w", err)
+		}
 
-	return nil
+        // Write raw bytes to stdout without UTF-8 conversion
+        if _, err := os.Stdout.Write(resp.Output); err != nil {
+            return fmt.Errorf("error writing to stdout: %w", err)
+        }
+	}
 }
 
 // StopTask stops a task by its ID

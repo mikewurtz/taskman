@@ -87,7 +87,22 @@ func checkAuthorization(caller string, taskObj *taskmanager.Task) error {
 	return nil
 }
 
-// StreamTaskOutput
+// StreamTaskOutput outputs the task’s streams to the client by tracking its read offset.
 func (s *taskManagerServer) StreamTaskOutput(req *pb.StreamTaskOutputRequest, stream pb.TaskManager_StreamTaskOutputServer) error {
-	return status.Errorf(codes.Unimplemented, "StreamTaskOutput not implemented")
+	taskObj, err := s.taskManager.GetTask(stream.Context(), req.TaskId)
+	if err != nil {
+		return task.TaskErrorToGRPC(err)
+	}
+
+	caller := stream.Context().Value(basegrpc.ClientIDKey).(string)
+	if err = checkAuthorization(caller, taskObj); err != nil {
+		return err
+	}
+
+	// Create a writer closure that sends data over the gRPC stream
+	writer := func(data []byte) error {
+		return stream.Send(&pb.StreamTaskOutputResponse{Output: data})
+	}
+
+	return s.taskManager.StreamTaskOutput(stream.Context(), req.TaskId, writer)
 }
