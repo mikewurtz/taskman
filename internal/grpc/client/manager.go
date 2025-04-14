@@ -82,13 +82,13 @@ func (m *Manager) StreamTaskOutput(ctx context.Context, taskID string) error {
 			return nil
 		}
 		if err != nil {
-			return fmt.Errorf("error receiving from stream: %w", err)
+			return fmt.Errorf("error receiving stream: %w", err)
 		}
 
-        // Write raw bytes to stdout without UTF-8 conversion
-        if _, err := os.Stdout.Write(resp.Output); err != nil {
-            return fmt.Errorf("error writing to stdout: %w", err)
-        }
+		// Write raw bytes to stdout without UTF-8 conversion
+		if _, err := os.Stdout.Write(resp.Output); err != nil {
+			return fmt.Errorf("error writing to stdout: %w", err)
+		}
 	}
 }
 

@@ -52,7 +52,7 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 	}
 
 	writer := NewTaskWriter()
-	// Set up output capture
+	// Set up output capture; we use a single writer for both stdout and stderr
 	cmd.Stdout = writer
 	cmd.Stderr = writer
 	

@@ -2,7 +2,6 @@ package task
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 
@@ -47,15 +46,17 @@ func (tm *TaskManager) StreamTaskOutput(ctx context.Context, taskID string, writ
 					log.Printf("Task manager server context canceled: %v", tm.ctx.Err())
 					return basetask.NewTaskError(basetask.ErrNotAvailable, "server shutting down")
 				default:
-					log.Printf("Merged context canceled: %v", mergedCtx.Err())
+					log.Printf("Client context canceled: %v", mergedCtx.Err())
+					return basetask.NewTaskError(basetask.ErrCanceled, "client canceled stream")
 				}
 			}
-			return fmt.Errorf("failed to read output: %w", err)
+			return basetask.NewTaskError(basetask.ErrInternal, "failed to read output")
 		}
 
 		if len(data) > 0 {
+			// write the data to the provided writer function
 			if err := writer(data); err != nil {
-				return fmt.Errorf("failed to write output: %w", err)
+				return basetask.NewTaskError(basetask.ErrInternal, "failed to write output")
 			}
 		}
 

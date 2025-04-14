@@ -102,9 +102,15 @@ func (s *taskManagerServer) StreamTaskOutput(req *pb.StreamTaskOutputRequest, st
 	}
 
 	// Create a writer closure that sends data over the gRPC stream
+	// stream.Send() will block if the client is slow to read the data
 	writer := func(data []byte) error {
 		return stream.Send(&pb.StreamTaskOutputResponse{Output: data})
 	}
 
-	return s.taskManager.StreamTaskOutput(stream.Context(), req.TaskId, writer)
+	err = s.taskManager.StreamTaskOutput(stream.Context(), req.TaskId, writer)
+	if err != nil {
+		return task.TaskErrorToGRPC(err)
+	}
+
+	return nil
 }

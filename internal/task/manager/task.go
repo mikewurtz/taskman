@@ -55,11 +55,11 @@ func CreateNewTask(id, clientID string, pid int, startTime time.Time, writer *Ta
 	return t
 }
 
-func (t *Task) GetWriter() *TaskWriter {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-	return t.writer
+// closeWriter closes the writer for the task
+func (t *Task) closeWriter() {
+	t.writer.Close()
 }
+
 
 // Update ReadOutput to delegate to TaskWriter
 func (t *Task) ReadOutput(ctx context.Context, offset int64) ([]byte, int64, error) {

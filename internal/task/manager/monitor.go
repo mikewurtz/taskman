@@ -99,7 +99,7 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 		log.Printf("Failed to clean up cgroup after process completion: %v", cleanupErr)
 	}
 
-	task.GetWriter().Close()
+	task.closeWriter()
 
 	// Signal that this task is done
 	close(task.done)
