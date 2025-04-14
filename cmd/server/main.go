@@ -20,32 +20,41 @@ var rootCmd = &cobra.Command{
 	Short: "Taskman server manages task lifecycle and streams output to clients",
 	Long: `This service manages task lifecycle (start, stop, status) and streams output to clients 
 over a secure mTLS connection.`,
-	Example: `$ taskman-server --server-address localhost:50051`,
+	Example:       `$ taskman-server --server-address localhost:50051`,
+	SilenceUsage:  true,
+	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		server, err := server.New(serverAddr)
+		server, err := server.New(cmd.Context(), serverAddr)
 		if err != nil {
 			return fmt.Errorf("failed to initialize server: %w", err)
 		}
 
-		// Start the server in a goroutine so we can handle signals
+		startErrCh := make(chan error, 1)
+
+		// Start the server in a goroutine so we can handle shutdown signals
 		go func() {
+			defer close(startErrCh)
 			if err := server.Start(); err != nil {
-				log.Printf("server exited with error: %v", err)
+				startErrCh <- fmt.Errorf("server exited with error: %w", err)
+			} else {
+				startErrCh <- nil
 			}
 		}()
+		select {
+		case <-cmd.Context().Done():
+			log.Println("Shutdown signal received. Stopping server...")
+			server.Shutdown()
+			log.Println("Server stopped")
+			return nil
 
-		// Set up signal handling for SIGINT and SIGTERM
-		ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-		defer stop()
-
-		log.Println("Taskman server is running. Press Ctrl+C to stop.")
-
-		// Use ctx to block until a signal is received:
-		<-ctx.Done()
-		log.Println("Shutdown signal received. Stopping server...")
-		server.Stop()
-		log.Println("Server stopped cleanly.")
-		return nil
+		case err := <-startErrCh:
+			if err != nil {
+				log.Printf("Server exited with error: %v", err)
+				return err
+			}
+			log.Println("Server exited cleanly before signal")
+			return nil
+		}
 	},
 }
 
@@ -56,8 +65,12 @@ func init() {
 }
 
 func main() {
-	if err := rootCmd.Execute(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	if err := rootCmd.ExecuteContext(ctx); err != nil {
 		log.Println(err)
+		// Call stop directly to ensure the context is stopped before we exit
+		stop()
 		os.Exit(1)
 	}
 }

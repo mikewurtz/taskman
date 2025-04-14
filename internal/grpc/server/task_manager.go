@@ -7,34 +7,86 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
+	"github.com/mikewurtz/taskman/internal/task"
+	taskmanager "github.com/mikewurtz/taskman/internal/task/manager"
 )
 
-func NewTaskManagerServer() *taskManagerServer {
-	return &taskManagerServer{}
+func NewTaskManagerServer(ctx context.Context) *taskManagerServer {
+	return &taskManagerServer{
+		taskManager: taskmanager.NewTaskManager(ctx),
+	}
 }
 
+// taskManagerServer is the implementation of the TaskManager service
 type taskManagerServer struct {
 	// this gives us a forward compatible implementation to extend later
 	pb.UnimplementedTaskManagerServer
+	taskManager *taskmanager.TaskManager
 }
 
-// TODO: Once we have a real implementation, we will break up this file into multiple files
-// These functions will be moved to the appropriate files and utilize the reuseable library
-// for managing the linux processes.
-
-// StartTask
+// StartTask starts a new task and returns the task ID
 func (s *taskManagerServer) StartTask(ctx context.Context, req *pb.StartTaskRequest) (*pb.StartTaskResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "StartTask not implemented")
+	taskID, err := s.taskManager.StartTask(ctx, req.Command, req.Args)
+	if err != nil {
+		return nil, task.TaskErrorToGRPC(err)
+	}
+	return &pb.StartTaskResponse{TaskId: taskID}, nil
 }
 
-// StopTask
+// StopTask stops the task with the given ID
 func (s *taskManagerServer) StopTask(ctx context.Context, req *pb.StopTaskRequest) (*pb.StopTaskResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "StopTask not implemented")
+	taskObj, err := s.taskManager.GetTask(ctx, req.TaskId)
+	if err != nil {
+		return nil, task.TaskErrorToGRPC(err)
+	}
+	caller := ctx.Value(basegrpc.ClientIDKey).(string)
+	if err = checkAuthorization(caller, taskObj); err != nil {
+		return nil, err
+	}
+	if err := s.taskManager.StopTask(ctx, req.TaskId); err != nil {
+		return nil, task.TaskErrorToGRPC(err)
+	}
+	return &pb.StopTaskResponse{}, nil
 }
 
-// GetTaskStatus
+// GetTaskStatus returns the status of the task with the given ID
 func (s *taskManagerServer) GetTaskStatus(ctx context.Context, req *pb.TaskStatusRequest) (*pb.TaskStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "GetTaskStatus not implemented")
+	taskObj, err := s.taskManager.GetTask(ctx, req.TaskId)
+	if err != nil {
+		return nil, task.TaskErrorToGRPC(err)
+	}
+	caller := ctx.Value(basegrpc.ClientIDKey).(string)
+	if err = checkAuthorization(caller, taskObj); err != nil {
+		return nil, err
+	}
+	status, err := task.StatusToProto(taskObj.GetStatus())
+	if err != nil {
+		return nil, task.TaskErrorToGRPC(err)
+	}
+
+	snapshot := taskObj.Snapshot()
+	returnStatus := &pb.TaskStatusResponse{
+		TaskId:            snapshot.ID,
+		ProcessId:         int32(snapshot.ProcessID),
+		Status:            status,
+		StartTime:         timestamppb.New(snapshot.StartTime),
+		EndTime:           timestamppb.New(snapshot.EndTime),
+		ExitCode:          snapshot.ExitCode,
+		TerminationSignal: snapshot.TerminationSignal,
+		TerminationSource: snapshot.TerminationSource,
+	}
+
+	return returnStatus, nil
+}
+
+func checkAuthorization(caller string, taskObj *taskmanager.Task) error {
+	if taskObj.GetClientID() != caller && caller != "admin" {
+		return status.Errorf(codes.NotFound, "task with id %s not found", taskObj.GetID())
+	}
+	return nil
 }
 
 // StreamTaskOutput

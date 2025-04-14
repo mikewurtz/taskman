@@ -1,9 +1,11 @@
 package commands
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 
 	"github.com/mikewurtz/taskman/internal/grpc/client"
@@ -64,10 +66,25 @@ Options:
 			return fmt.Errorf("failed to start task: %w", err)
 		}
 
-		output := fmt.Sprintf("TASK ID\n-------\n%s\n", taskID)
+		output := printTaskID(taskID)
 		if _, err = fmt.Fprint(cmd.OutOrStdout(), output); err != nil {
 			return fmt.Errorf("failed to print output: %w", err)
 		}
 		return nil
 	},
+}
+
+// printTaskID is a helper function to print the task ID in a table format
+func printTaskID(taskID string) string {
+	var buf bytes.Buffer
+
+	table := tablewriter.NewWriter(&buf)
+	table.SetHeader([]string{"TASK ID"})
+	table.Append([]string{taskID})
+	table.SetBorder(true)
+	table.SetHeaderAlignment(tablewriter.ALIGN_CENTER)
+	table.SetAlignment(tablewriter.ALIGN_CENTER)
+	table.Render()
+
+	return buf.String()
 }

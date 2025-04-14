@@ -54,6 +54,15 @@ Options:
 			}
 		}()
 
-		return manager.GetTaskStatus(cmd.Context(), taskID)
+		status, err := manager.GetTaskStatus(cmd.Context(), taskID)
+		if err != nil {
+			return fmt.Errorf("failed to get task status: %w", err)
+		}
+
+		if _, logErr := fmt.Fprintf(cmd.OutOrStdout(), "%s\n", status.String()); logErr != nil {
+			// fall back to fmt.Println if logging to cmd.OutOrStdout fails
+			return fmt.Errorf("failed to print task status: %w", logErr)
+		}
+		return nil
 	},
 }

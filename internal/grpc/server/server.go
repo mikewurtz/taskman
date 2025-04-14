@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -12,17 +13,19 @@ import (
 	"github.com/mikewurtz/taskman/certs"
 	pb "github.com/mikewurtz/taskman/gen/proto"
 	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
+	"github.com/mikewurtz/taskman/internal/task/cgroups"
 )
 
 // Wraps the grpcServer and listener together
 type Server struct {
 	grpcServer *grpc.Server
 	listener   net.Listener
+	taskServer *taskManagerServer
 }
 
 // New sets up the gRPC server and listener with mTLS authentication using TLS v1.3
 // Includes interceptors for injecting the client CN into the context for unary and stream calls
-func New(serverAddr string) (*Server, error) {
+func New(ctx context.Context, serverAddr string) (*Server, error) {
 	cert, err := basegrpc.LoadTLSCert(certs.ServerCertName)
 	if err != nil {
 		return nil, fmt.Errorf("loading server cert: %w", err)
@@ -51,7 +54,8 @@ func New(serverAddr string) (*Server, error) {
 		grpc.ChainUnaryInterceptor(ExtractClientCNInterceptor),
 		grpc.ChainStreamInterceptor(ExtractClientCNStreamInterceptor))
 
-	pb.RegisterTaskManagerServer(grpcServer, NewTaskManagerServer())
+	taskServer := NewTaskManagerServer(ctx)
+	pb.RegisterTaskManagerServer(grpcServer, taskServer)
 
 	lis, err := net.Listen("tcp", serverAddr)
 	if err != nil {
@@ -61,12 +65,20 @@ func New(serverAddr string) (*Server, error) {
 	return &Server{
 		grpcServer: grpcServer,
 		listener:   lis,
+		taskServer: taskServer,
 	}, nil
 }
 
 // Start starts the gRPC server
 func (s *Server) Start() error {
-	log.Printf("Server listening on %v", s.listener.Addr())
+	// first check if the cgroup v2 controllers are enabled
+	err := cgroups.CheckAndEnableCgroupV2Controllers("/sys/fs/cgroup/cgroup.subtree_control", []string{"cpu", "memory", "io"})
+	if err != nil {
+		log.Printf("failed to check cgroup v2 controllers: %v", err)
+		return err
+	}
+
+	log.Printf("Server listening on %v (Ctrl+C to stop)", s.listener.Addr())
 	return s.grpcServer.Serve(s.listener)
 }
 
@@ -77,6 +89,17 @@ func (s *Server) Addr() string {
 	return ""
 }
 
-func (s *Server) Stop() {
+// Shutdown shuts down the gRPC server and waits for all tasks to complete
+func (s *Server) Shutdown() {
+	log.Println("Shutting down gRPC server...")
+	// TODO: GracefulStop() waits for all RPCs to complete
+	// we should add a timeout to the graceful stop
+	// for now the supported RPCs are all quick to return so we should be fine
 	s.grpcServer.GracefulStop()
+
+	log.Println("Waiting for all tasks to complete...")
+	err := s.taskServer.taskManager.WaitForTasks()
+	if err != nil {
+		log.Printf("Error waiting for tasks to complete: %v", err)
+	}
 }
