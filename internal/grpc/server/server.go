@@ -83,6 +83,9 @@ func (s *Server) Addr() string {
 
 func (s *Server) Shutdown() {
 	log.Println("Shutting down gRPC server...")
+	// TODO: GracefulStop() waits for all RPCs to complete
+	// we should add a timeout to the graceful stop
+	// for now the supported RPCs are all quick to return so we should be fine
 	s.grpcServer.GracefulStop()
 
 	log.Println("Waiting for all tasks to complete...")
