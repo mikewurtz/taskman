@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -81,13 +82,27 @@ func (s *Server) Addr() string {
 	return ""
 }
 
+// Shutdown shuts down the gRPC server and shuts down running tasks
 func (s *Server) Shutdown() {
 	log.Println("Shutting down gRPC server...")
-	s.grpcServer.GracefulStop()
+
+	// GracefulStop with timeout
+	done := make(chan struct{})
+	go func() {
+		s.grpcServer.GracefulStop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Println("gRPC server stopped gracefully.")
+	case <-time.After(10 * time.Second):
+		log.Println("GracefulStop timed out; forcing shutdown.")
+		s.grpcServer.Stop()
+	}
 
 	log.Println("Waiting for all tasks to complete...")
-	err := s.taskServer.taskManager.WaitForTasks()
-	if err != nil {
+	if err := s.taskServer.taskManager.WaitForTasks(); err != nil {
 		log.Printf("Error waiting for tasks to complete: %v", err)
 	}
 }

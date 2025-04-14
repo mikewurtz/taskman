@@ -22,6 +22,8 @@ const (
 	ErrFailedPrecondition
 	// ErrInternal indicates an internal system error
 	ErrInternal
+	// ErrNotAvailable indicates that the requested resource is not available
+	ErrNotAvailable
 )
 
 // TaskError represents an error that occurred during task management
@@ -75,6 +77,8 @@ func TaskErrorToGRPC(err error) error {
 			code = codes.FailedPrecondition
 		case ErrInternal:
 			code = codes.Internal
+		case ErrNotAvailable:
+			code = codes.Unavailable
 		default:
 			code = codes.Internal
 		}

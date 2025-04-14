@@ -44,7 +44,7 @@ over a secure mTLS connection.`,
 		// Stop accepting new connections and attempt to clean up all tasks
 		server.Shutdown()
 
-		log.Println("Server stopped cleanly.")
+		log.Println("Server stopped")
 		return nil
 	},
 }
