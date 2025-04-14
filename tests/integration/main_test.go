@@ -48,8 +48,10 @@ func TestMain(m *testing.M) {
 // startTestServer starts the test server and returns a function to stop it
 // will only be called once
 func startTestServer() (func(), error) {
-	srv, err := server.New(context.Background(), "localhost:0")
+	ctx, cancel := context.WithCancel(context.Background())
+	srv, err := server.New(ctx, "localhost:0")
 	if err != nil {
+		cancel()
 		return nil, fmt.Errorf("failed to create test server: %w", err)
 	}
 
@@ -60,6 +62,7 @@ func startTestServer() (func(), error) {
 	}()
 
 	stopServer := func() {
+		cancel()
 		srv.Shutdown()
 	}
 
