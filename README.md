@@ -8,7 +8,7 @@ make build
 ```
 
 # Prequisites
-It assumed that you have a block device that is major:minor 8:0 and that this is /dev/sda for assigning the `io` cgroup settings. An integration test `TestIntegration_StartTaskIOThrottled` will fail if there is no /dev/sda block device.
+It is assumed that you have a block device that is major:minor 8:0 and that this is /dev/sda for assigning the `io` cgroup settings. An integration test `TestIntegration_StartTaskIOThrottled` will fail if there is no /dev/sda block device.
 
 # How to run
 
