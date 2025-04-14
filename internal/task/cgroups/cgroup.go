@@ -100,3 +100,31 @@ func CheckIfOOMKilled(taskID string) (bool, error) {
 
 	return false, nil
 }
+
+// CheckAndEnableCgroupV2Controllers checks if the cgroup v2 controllers are enabled
+// and enables them if they are not
+func CheckAndEnableCgroupV2Controllers(path string, required []string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", path, err)
+	}
+
+	enabled := strings.Fields(string(data))
+	controllerSet := make(map[string]bool)
+	for _, ctrl := range enabled {
+		controllerSet[ctrl] = true
+	}
+
+	for _, ctrl := range required {
+		if !controllerSet[ctrl] {
+
+			// Try to enable it
+			ctrlStr := "+" + ctrl
+			if err := os.WriteFile(path, []byte(ctrlStr), 0644); err != nil {
+				return fmt.Errorf("failed to enable cgroup controller %s: %w", ctrl, err)
+			}
+		}
+	}
+
+	return nil
+}

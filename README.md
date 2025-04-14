@@ -8,15 +8,7 @@ make build
 ```
 
 # Prequisites
-It is expected that your system is using Cgroup v2 and has the `io`, `memory`, and `cpu` controllers enabled for child cgroups in the cgroup.subtree_control file. These can be enabled by by running the following commands
-
-```
-echo "+io" | sudo tee /sys/fs/cgroup/cgroup.subtree_control
-echo "+memory" | sudo tee /sys/fs/cgroup/cgroup.subtree_control
-echo "+cpu" | sudo tee /sys/fs/cgroup/cgroup.subtree_control
-```
-
-It is also assumed that you have a block device that is major:minor 8:0 and that this is /dev/sda for assigning the `io` cgroup settings. An integration test `TestIntegration_StartTaskIOThrottled` will fail if there is no /dev/sda block device.
+It is assumed that you have a block device that is major:minor 8:0 and that this is /dev/sda for assigning the `io` cgroup settings. An integration test `TestIntegration_StartTaskIOThrottled` will fail if there is no /dev/sda block device.
 
 # How to run
 

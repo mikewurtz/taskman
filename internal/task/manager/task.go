@@ -27,6 +27,20 @@ type Task struct {
 	writer *TaskWriter
 }
 
+// TaskSnapshot is a snapshot of the task's state
+// used to return task information to reduce the number of lock calls
+type TaskSnapshot struct {
+	ID                string
+	ClientID          string
+	ProcessID         int
+	Status            int
+	StartTime         time.Time
+	EndTime           time.Time
+	ExitCode          *int32
+	TerminationSignal string
+	TerminationSource string
+}
+
 // NewTask creates a new task
 func CreateNewTask(id, clientID string, pid int, startTime time.Time, writer *TaskWriter) *Task {
 	t := &Task{
@@ -54,22 +68,16 @@ func (t *Task) ReadOutput(ctx context.Context, offset int64) ([]byte, int64, err
 
 // GetID returns the task ID
 func (t *Task) GetID() string {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
 	return t.id
 }
 
 // GetClientID returns the client ID
 func (t *Task) GetClientID() string {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
 	return t.clientID
 }
 
 // GetProcessID returns the process group ID
 func (t *Task) GetProcessID() int {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
 	return t.processID
 }
 
@@ -82,8 +90,6 @@ func (t *Task) GetStatus() int {
 
 // GetStartTime returns the task's start time
 func (t *Task) GetStartTime() time.Time {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
 	return t.startTime
 }
 
@@ -159,4 +165,29 @@ func (t *Task) Done() <-chan struct{} {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.done
+}
+
+// Snapshot returns a snapshot of the task's state
+// used to reduce the number of lock calls
+func (t *Task) Snapshot() TaskSnapshot {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	var exitCodeCopy *int32
+	if t.exitCode != nil {
+		val := *t.exitCode
+		exitCodeCopy = &val
+	}
+
+	return TaskSnapshot{
+		ID:                t.id,
+		ClientID:          t.clientID,
+		ProcessID:         t.processID,
+		Status:            t.status,
+		StartTime:         t.startTime,
+		EndTime:           t.endTime,
+		ExitCode:          exitCodeCopy,
+		TerminationSignal: t.terminationSignal,
+		TerminationSource: t.terminationSource,
+	}
 }
