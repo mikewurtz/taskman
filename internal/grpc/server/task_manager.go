@@ -20,13 +20,14 @@ func NewTaskManagerServer(ctx context.Context) *taskManagerServer {
 	}
 }
 
+// taskManagerServer is the implementation of the TaskManager service
 type taskManagerServer struct {
 	// this gives us a forward compatible implementation to extend later
 	pb.UnimplementedTaskManagerServer
 	taskManager *taskmanager.TaskManager
 }
 
-// StartTask
+// StartTask starts a new task and returns the task ID
 func (s *taskManagerServer) StartTask(ctx context.Context, req *pb.StartTaskRequest) (*pb.StartTaskResponse, error) {
 	taskID, err := s.taskManager.StartTask(ctx, req.Command, req.Args)
 	if err != nil {
@@ -35,7 +36,7 @@ func (s *taskManagerServer) StartTask(ctx context.Context, req *pb.StartTaskRequ
 	return &pb.StartTaskResponse{TaskId: taskID}, nil
 }
 
-// StopTask
+// StopTask stops the task with the given ID
 func (s *taskManagerServer) StopTask(ctx context.Context, req *pb.StopTaskRequest) (*pb.StopTaskResponse, error) {
 	taskObj, err := s.taskManager.GetTask(ctx, req.TaskId)
 	if err != nil {
@@ -51,7 +52,7 @@ func (s *taskManagerServer) StopTask(ctx context.Context, req *pb.StopTaskReques
 	return &pb.StopTaskResponse{}, nil
 }
 
-// GetTaskStatus
+// GetTaskStatus returns the status of the task with the given ID
 func (s *taskManagerServer) GetTaskStatus(ctx context.Context, req *pb.TaskStatusRequest) (*pb.TaskStatusResponse, error) {
 	taskObj, err := s.taskManager.GetTask(ctx, req.TaskId)
 	if err != nil {
@@ -66,15 +67,16 @@ func (s *taskManagerServer) GetTaskStatus(ctx context.Context, req *pb.TaskStatu
 		return nil, task.TaskErrorToGRPC(err)
 	}
 
+	snapshot := taskObj.Snapshot()
 	returnStatus := &pb.TaskStatusResponse{
-		TaskId:            taskObj.GetID(),
-		ProcessId:         int32(taskObj.GetProcessID()),
+		TaskId:            snapshot.ID,
+		ProcessId:         int32(snapshot.ProcessID),
 		Status:            status,
-		StartTime:         timestamppb.New(taskObj.GetStartTime()),
-		EndTime:           timestamppb.New(taskObj.GetEndTime()),
-		ExitCode:          taskObj.GetExitCode(),
-		TerminationSignal: taskObj.GetTerminationSignal(),
-		TerminationSource: taskObj.GetTerminationSource(),
+		StartTime:         timestamppb.New(snapshot.StartTime),
+		EndTime:           timestamppb.New(snapshot.EndTime),
+		ExitCode:          snapshot.ExitCode,
+		TerminationSignal: snapshot.TerminationSignal,
+		TerminationSource: snapshot.TerminationSource,
 	}
 
 	return returnStatus, nil

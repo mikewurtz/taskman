@@ -13,6 +13,7 @@ import (
 	"github.com/mikewurtz/taskman/certs"
 	pb "github.com/mikewurtz/taskman/gen/proto"
 	basegrpc "github.com/mikewurtz/taskman/internal/grpc"
+	"github.com/mikewurtz/taskman/internal/task/cgroups"
 )
 
 // Wraps the grpcServer and listener together
@@ -70,7 +71,14 @@ func New(ctx context.Context, serverAddr string) (*Server, error) {
 
 // Start starts the gRPC server
 func (s *Server) Start() error {
-	log.Printf("Server listening on %v", s.listener.Addr())
+	// first check if the cgroup v2 controllers are enabled
+	err := cgroups.CheckAndEnableCgroupV2Controllers("/sys/fs/cgroup/cgroup.subtree_control", []string{"cpu", "memory", "io"})
+	if err != nil {
+		log.Printf("failed to check cgroup v2 controllers: %v", err)
+		return err
+	}
+
+	log.Printf("Server listening on %v (Ctrl+C to stop)", s.listener.Addr())
 	return s.grpcServer.Serve(s.listener)
 }
 
@@ -81,6 +89,7 @@ func (s *Server) Addr() string {
 	return ""
 }
 
+// Shutdown shuts down the gRPC server and waits for all tasks to complete
 func (s *Server) Shutdown() {
 	log.Println("Shutting down gRPC server...")
 	// TODO: GracefulStop() waits for all RPCs to complete

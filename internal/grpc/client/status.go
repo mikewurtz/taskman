@@ -8,6 +8,8 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
+// TaskStatus represents the status of the task
+// used to display the task information to the caller
 type TaskStatus struct {
 	TaskID            string
 	Status            string
