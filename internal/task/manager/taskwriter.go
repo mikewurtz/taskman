@@ -5,6 +5,7 @@ import (
 	"io"
 	"slices"
 	"sync"
+	"time"
 )
 
 // make sure TaskWriter implements io.Writer
@@ -44,14 +45,17 @@ func (tw *TaskWriter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-// maxChunkSize is the maximum number of bytes to send to the client at a time
-// TODO: make this configurable
-const maxChunkSize = 4096
+// TODO: make these configurable
+const (
+	// maxChunkSize is the maximum number of bytes to send to the client at a time
+	maxChunkSize = 4096
+	// recheckInterval is the interval to recheck the context
+	recheckInterval = 500 * time.Millisecond
+)
 
 // ReadOutput reads the output from the task writer. Will send up to maxChunkSize bytes to the client.
 func (tw *TaskWriter) ReadOutput(ctx context.Context, offset int64) ([]byte, int64, error) {
 	for {
-		// Quick check using a read lock
 		tw.mu.RLock()
 		outputLen := int64(len(tw.output))
 		if offset < outputLen {
@@ -65,24 +69,26 @@ func (tw *TaskWriter) ReadOutput(ctx context.Context, offset int64) ([]byte, int
 		}
 		tw.mu.RUnlock()
 
-		// cond.Wait() requires a full lock
 		tw.mu.Lock()
+		// set up a timer to recheck if the context has been cancelled
+		timer := time.NewTimer(recheckInterval)
 
 		select {
 		case <-ctx.Done():
 			tw.mu.Unlock()
+			timer.Stop()
 			return nil, offset, ctx.Err()
 		case <-tw.done:
-			// if there is additional output after task was done return it
-			// otherwise return EOF
 			if offset >= int64(len(tw.output)) {
 				tw.mu.Unlock()
+				timer.Stop()
 				return nil, offset, io.EOF
 			}
-		default:
-			// Wait for a signal of new output
-			tw.cond.Wait()
+		case <-timer.C:
+			// Just fall through and recheck output
 		}
+
+		timer.Stop()
 		tw.mu.Unlock()
 	}
 }

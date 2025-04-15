@@ -5,6 +5,7 @@ import (
 	"io"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -13,6 +14,8 @@ import (
 
 	pb "github.com/mikewurtz/taskman/gen/proto"
 )
+
+const streamTestTimeout = 10 * time.Second
 
 func TestIntegration_StreamTaskOutputContextCanceled(t *testing.T) {
 	t.Parallel()
@@ -38,7 +41,7 @@ func TestIntegration_ShCommandOutput(t *testing.T) {
 
 	client := createTestClient(t, "client001")
 
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), streamTestTimeout)
 	defer cancel()
 
 	// Start a task that runs a sh command that prints three lines ex:
@@ -78,7 +81,7 @@ func TestIntegration_StreamTaskOutput_StdoutStderr(t *testing.T) {
 
 	client := createTestClient(t, "client001")
 
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), streamTestTimeout)
 	defer cancel()
 
 	startResp, err := client.StartTask(ctx, &pb.StartTaskRequest{
@@ -115,7 +118,7 @@ func TestIntegration_ConcurrentStreamTaskOutput(t *testing.T) {
 
 	client1 := createTestClient(t, "client001")
 
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), streamTestTimeout)
 	defer cancel()
 
 	startResp, err := client1.StartTask(ctx, &pb.StartTaskRequest{
