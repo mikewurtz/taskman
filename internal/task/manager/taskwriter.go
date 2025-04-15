@@ -14,7 +14,7 @@ var _ io.Writer = &TaskWriter{}
 // Uses a single shared output buffer that is written to for the task
 // clients then read from this buffer with their own offsets
 type TaskWriter struct {
-	mu     sync.RWMutex 
+	mu     sync.RWMutex
 	output []byte
 	cond   *sync.Cond
 	done   chan struct{}
@@ -23,6 +23,9 @@ type TaskWriter struct {
 // NewTaskWriter initializes a new TaskWriter
 func NewTaskWriter() *TaskWriter {
 	tw := &TaskWriter{
+		// TODO: make this configurable
+		// Set up a buffer with an initial size so we avoid reallocations
+		// early on when the task is just starting
 		output: make([]byte, 0, 4096),
 		done:   make(chan struct{}),
 	}
@@ -46,45 +49,42 @@ const maxChunkSize = 4096
 
 // ReadOutput reads the output from the task writer. Will send up to maxChunkSize bytes to the client.
 func (tw *TaskWriter) ReadOutput(ctx context.Context, offset int64) ([]byte, int64, error) {
-    for {
-        // Quick check using a read lock
-        tw.mu.RLock()
-        outputLen := int64(len(tw.output))
-        if offset < outputLen {
-            end := offset + maxChunkSize
-            if end > outputLen {
-                end = outputLen
-            }
-            data := slices.Clone(tw.output[offset:end])
-            tw.mu.RUnlock()
-            return data, end, nil
-        }
-        tw.mu.RUnlock()
+	for {
+		// Quick check using a read lock
+		tw.mu.RLock()
+		outputLen := int64(len(tw.output))
+		if offset < outputLen {
+			end := offset + maxChunkSize
+			if end > outputLen {
+				end = outputLen
+			}
+			data := slices.Clone(tw.output[offset:end])
+			tw.mu.RUnlock()
+			return data, end, nil
+		}
+		tw.mu.RUnlock()
 
-        // cond.Wait() requires a full lock
-        tw.mu.Lock()
+		// cond.Wait() requires a full lock
+		tw.mu.Lock()
 
-        select {
-        case <-ctx.Done():
-            tw.mu.Unlock()
-            return nil, offset, ctx.Err()
-        case <-tw.done:
-            // if there is additional output after task was done return it
-            // otherwise return EOF
-            if offset >= int64(len(tw.output)) {
-                tw.mu.Unlock()
-                return nil, offset, io.EOF
-            }
-        default:
-            // Wait for a signal of new output
-            tw.cond.Wait()
-        }
-        tw.mu.Unlock()
-    }
+		select {
+		case <-ctx.Done():
+			tw.mu.Unlock()
+			return nil, offset, ctx.Err()
+		case <-tw.done:
+			// if there is additional output after task was done return it
+			// otherwise return EOF
+			if offset >= int64(len(tw.output)) {
+				tw.mu.Unlock()
+				return nil, offset, io.EOF
+			}
+		default:
+			// Wait for a signal of new output
+			tw.cond.Wait()
+		}
+		tw.mu.Unlock()
+	}
 }
-
-
-
 
 // Close closes the task writer and wakes up any waiting readers
 func (tw *TaskWriter) Close() {

@@ -55,7 +55,6 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 	// Set up output capture; we use a single writer for both stdout and stderr
 	cmd.Stdout = writer
 	cmd.Stderr = writer
-	
 
 	// Start the process
 	if err := cmd.Start(); err != nil {

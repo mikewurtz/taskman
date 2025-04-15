@@ -135,9 +135,9 @@ func TestIntegration_StartTaskTestAuthorization(t *testing.T) {
 	stream, err := client2.StreamTaskOutput(ctx, &pb.StreamTaskOutputRequest{
 		TaskId: resp.TaskId,
 	})
-	require.NoError(t, err) // Stream is successfully created
+	require.NoError(t, err)
 
-	_, err = stream.Recv() // Error occurs here due to failed authorization
+	_, err = stream.Recv()
 	require.Error(t, err)
 
 	sts, ok = status.FromError(err)

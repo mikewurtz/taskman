@@ -59,10 +59,9 @@ func (t *Task) closeWriter() {
 	t.writer.Close()
 }
 
-
 // ReadOutput delegates to TaskWriter
 func (t *Task) ReadOutput(ctx context.Context, offset int64) ([]byte, int64, error) {
-    return t.writer.ReadOutput(ctx, offset)
+	return t.writer.ReadOutput(ctx, offset)
 }
 
 // GetID returns the task ID
