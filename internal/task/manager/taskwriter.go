@@ -18,6 +18,7 @@ type TaskWriter struct {
 	output []byte
 	cond   *sync.Cond
 	done   chan struct{}
+	once   sync.Once
 }
 
 // NewTaskWriter initializes a new TaskWriter
@@ -88,8 +89,10 @@ func (tw *TaskWriter) ReadOutput(ctx context.Context, offset int64) ([]byte, int
 
 // Close closes the task writer and wakes up any waiting readers
 func (tw *TaskWriter) Close() {
-	tw.mu.Lock()
-	close(tw.done)
-	tw.cond.Broadcast()
-	tw.mu.Unlock()
+	tw.once.Do(func() {
+		tw.mu.Lock()
+		defer tw.mu.Unlock()
+		close(tw.done)
+		tw.cond.Broadcast()
+	})
 }
