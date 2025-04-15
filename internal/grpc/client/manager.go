@@ -77,7 +77,7 @@ func (m *Manager) StreamTaskOutput(ctx context.Context, taskID string) error {
 
 	for {
 		resp, err := stream.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			// Stream completed normally
 			return nil
 		}

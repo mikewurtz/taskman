@@ -37,7 +37,7 @@ func (tm *TaskManager) StreamTaskOutput(ctx context.Context, taskID string, writ
 	var offset int64
 	for {
 		data, newOffset, err := taskObj.ReadOutput(mergedCtx, offset)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			// we hit end of the output stream; return nil to indicate success
 			return nil
 		}
