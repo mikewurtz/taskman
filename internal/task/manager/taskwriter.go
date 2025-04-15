@@ -5,7 +5,6 @@ import (
 	"io"
 	"slices"
 	"sync"
-	"time"
 )
 
 // make sure TaskWriter implements io.Writer
@@ -49,47 +48,58 @@ func (tw *TaskWriter) Write(p []byte) (n int, err error) {
 const (
 	// maxChunkSize is the maximum number of bytes to send to the client at a time
 	maxChunkSize = 4096
-	// recheckInterval is the interval to recheck the context
-	recheckInterval = 500 * time.Millisecond
 )
 
 // ReadOutput reads the output from the task writer. Will send up to maxChunkSize bytes to the client.
+// It returns the next offset to read from and the data read. If there is no more data to read it returns io.EOF.
+// If the context is cancelled it returns the context error
 func (tw *TaskWriter) ReadOutput(ctx context.Context, offset int64) ([]byte, int64, error) {
+	stopWake := context.AfterFunc(ctx, func() {
+		tw.mu.Lock()
+		tw.cond.Broadcast()
+		tw.mu.Unlock()
+	})
+	defer stopWake()
+
+	// Fast path with read lock
+	tw.mu.RLock()
+	outputLen := int64(len(tw.output))
+	if offset < outputLen {
+		end := offset + maxChunkSize
+		if end > outputLen {
+			end = outputLen
+		}
+		data := slices.Clone(tw.output[offset:end])
+		tw.mu.RUnlock()
+		return data, end, nil
+	}
+	tw.mu.RUnlock()
+
+	tw.mu.Lock()
+	defer tw.mu.Unlock()
+
 	for {
-		tw.mu.RLock()
-		outputLen := int64(len(tw.output))
+		outputLen = int64(len(tw.output))
 		if offset < outputLen {
 			end := offset + maxChunkSize
 			if end > outputLen {
 				end = outputLen
 			}
 			data := slices.Clone(tw.output[offset:end])
-			tw.mu.RUnlock()
 			return data, end, nil
 		}
-		tw.mu.RUnlock()
-
-		tw.mu.Lock()
-		// set up a timer to recheck if the context has been cancelled
-		timer := time.NewTimer(recheckInterval)
 
 		select {
 		case <-ctx.Done():
-			tw.mu.Unlock()
-			timer.Stop()
 			return nil, offset, ctx.Err()
 		case <-tw.done:
 			if offset >= int64(len(tw.output)) {
-				tw.mu.Unlock()
-				timer.Stop()
 				return nil, offset, io.EOF
 			}
-		case <-timer.C:
-			// Just fall through and recheck output
+		default:
 		}
 
-		timer.Stop()
-		tw.mu.Unlock()
+		tw.cond.Wait()
 	}
 }
 

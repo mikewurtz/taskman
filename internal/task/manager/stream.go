@@ -30,16 +30,17 @@ func (tm *TaskManager) StreamTaskOutput(ctx context.Context, taskID string, writ
 		return err
 	}
 
-	// Merge client and server contexts to cancel when either is done
-	// if the either the client or server context is cancelled, we want to stop the stream
+	// Merge client and server contexts
 	mergedCtx, cancel := mergeCancelContexts(ctx, tm.ctx)
 	defer cancel()
 
-	var offset int64
+	reader := taskObj.newOutputReader(mergedCtx)
+
+	buf := make([]byte, maxChunkSize)
+
 	for {
-		data, newOffset, err := taskObj.ReadOutput(mergedCtx, offset)
+		n, err := reader.Read(buf)
 		if errors.Is(err, io.EOF) {
-			// we hit end of the output stream; return nil to indicate success
 			return nil
 		}
 		if err != nil {
@@ -56,13 +57,23 @@ func (tm *TaskManager) StreamTaskOutput(ctx context.Context, taskID string, writ
 			return basetask.NewTaskErrorWithErr(basetask.ErrInternal, "failed to read output", err)
 		}
 
-		if len(data) > 0 {
-			// write the data to the provided writer function
-			if err := writer(data); err != nil {
+		if n > 0 {
+			if err := writer(buf[:n]); err != nil {
 				return basetask.NewTaskErrorWithErr(basetask.ErrInternal, "failed to write output", err)
 			}
 		}
-
-		offset = newOffset
 	}
+}
+
+func (t *Task) newOutputReader(ctx context.Context) io.ReadCloser {
+	return &TaskReader{
+		tw:  t.getWriter(),
+		ctx: ctx,
+	}
+}
+
+func (t *Task) getWriter() *TaskWriter {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.writer
 }
