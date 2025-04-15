@@ -106,7 +106,7 @@ func (s *Server) Shutdown() {
 	select {
 	case <-done:
 		log.Println("gRPC server stopped gracefully.")
-	case <-time.After(10 * time.Second):
+	case <-time.After(30 * time.Second):
 		log.Println("GracefulStop timed out; forcing shutdown.")
 		s.grpcServer.Stop()
 	}

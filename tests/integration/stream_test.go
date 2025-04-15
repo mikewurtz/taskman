@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"io"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -107,4 +108,46 @@ func TestIntegration_StreamTaskOutput_StdoutStderr(t *testing.T) {
 	// Verify that the output includes both expected messages
 	assert.Contains(t, outputStr, "Hello, stdout", "expected stdout output missing")
 	assert.Contains(t, outputStr, "Hello, stderr", "expected stderr output missing")
+}
+
+func TestIntegration_ConcurrentStreamTaskOutput(t *testing.T) {
+	t.Parallel()
+
+	client1 := createTestClient(t, "client001")
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	startResp, err := client1.StartTask(ctx, &pb.StartTaskRequest{
+		Command: "sh",
+		Args:    []string{"-c", `for i in $(seq 1 5); do echo "Line $i"; sleep 0.1; done`},
+	})
+	require.NoError(t, err)
+
+	stream1, err := client1.StreamTaskOutput(ctx, &pb.StreamTaskOutputRequest{TaskId: startResp.TaskId})
+	require.NoError(t, err)
+
+	stream2, err := client1.StreamTaskOutput(ctx, &pb.StreamTaskOutputRequest{TaskId: startResp.TaskId})
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	readAll := func(stream pb.TaskManager_StreamTaskOutputClient, collected *string) {
+		defer wg.Done()
+		for {
+			resp, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+			*collected += string(resp.Output)
+		}
+	}
+
+	var output1, output2 string
+	wg.Add(2)
+	go readAll(stream1, &output1)
+	go readAll(stream2, &output2)
+	wg.Wait()
+
+	assert.Equal(t, output1, output2, "clients should receive identical output")
 }
