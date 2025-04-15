@@ -8,7 +8,8 @@ import (
 	basetask "github.com/mikewurtz/taskman/internal/task"
 )
 
-func mergeContexts(a, b context.Context) (context.Context, context.CancelFunc) {
+// mergeCancelContexts merges two contexts and cancels when either is done
+func mergeCancelContexts(a, b context.Context) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		select {
@@ -29,14 +30,15 @@ func (tm *TaskManager) StreamTaskOutput(ctx context.Context, taskID string, writ
 	}
 
 	// Merge client and server contexts to cancel when either is done
-	// if the server context is cancelled, we want to stop the stream
-	mergedCtx, cancel := mergeContexts(ctx, tm.ctx)
+	// if the either the client or server context is cancelled, we want to stop the stream
+	mergedCtx, cancel := mergeCancelContexts(ctx, tm.ctx)
 	defer cancel()
 
 	var offset int64
 	for {
 		data, newOffset, err := taskObj.ReadOutput(mergedCtx, offset)
 		if err == io.EOF {
+			// we hit end of the output stream; return nil to indicate success
 			return nil
 		}
 		if err != nil {
@@ -50,13 +52,13 @@ func (tm *TaskManager) StreamTaskOutput(ctx context.Context, taskID string, writ
 					return basetask.NewTaskError(basetask.ErrCanceled, "client canceled stream")
 				}
 			}
-			return basetask.NewTaskError(basetask.ErrInternal, "failed to read output")
+			return basetask.NewTaskErrorWithErr(basetask.ErrInternal, "failed to read output", err)
 		}
 
 		if len(data) > 0 {
 			// write the data to the provided writer function
 			if err := writer(data); err != nil {
-				return basetask.NewTaskError(basetask.ErrInternal, "failed to write output")
+				return basetask.NewTaskErrorWithErr(basetask.ErrInternal, "failed to write output", err)
 			}
 		}
 

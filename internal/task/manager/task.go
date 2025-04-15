@@ -41,9 +41,9 @@ type TaskSnapshot struct {
 	TerminationSource string
 }
 
-// NewTask creates a new task
+// CreateNewTask creates a new task with a writer
 func CreateNewTask(id, clientID string, pid int, startTime time.Time, writer *TaskWriter) *Task {
-	t := &Task{
+	return &Task{
 		id:        id,
 		clientID:  clientID,
 		processID: pid,
@@ -52,7 +52,6 @@ func CreateNewTask(id, clientID string, pid int, startTime time.Time, writer *Ta
 		done:      make(chan struct{}),
 		writer:    writer,
 	}
-	return t
 }
 
 // closeWriter closes the writer for the task
@@ -61,7 +60,7 @@ func (t *Task) closeWriter() {
 }
 
 
-// Update ReadOutput to delegate to TaskWriter
+// ReadOutput delegates to TaskWriter
 func (t *Task) ReadOutput(ctx context.Context, offset int64) ([]byte, int64, error) {
     return t.writer.ReadOutput(ctx, offset)
 }

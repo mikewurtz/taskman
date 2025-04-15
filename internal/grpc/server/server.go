@@ -101,6 +101,8 @@ func (s *Server) Shutdown() {
 		close(done)
 	}()
 
+	// give the ongoing RPCs a chance to complete
+	// TODO: make this timeout configurable
 	select {
 	case <-done:
 		log.Println("gRPC server stopped gracefully.")
