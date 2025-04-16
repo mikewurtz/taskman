@@ -88,7 +88,7 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 			}
 		} else {
 			task.SetStatus(basetask.JobStatusSignaled)
-			if task.GetTerminationSignal() == "" {
+			if task.GetTerminationSource() == "" {
 				task.SetTerminationSource("system")
 			}
 		}
