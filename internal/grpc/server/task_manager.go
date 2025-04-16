@@ -110,7 +110,11 @@ func (s *taskManagerServer) StreamTaskOutput(req *pb.StreamTaskOutputRequest, st
 	if err != nil {
 		return task.TaskErrorToGRPC(err)
 	}
-	context.AfterFunc(stream.Context(), func() { jobStreamer.Close() })
+	context.AfterFunc(stream.Context(), func() {
+		if err := jobStreamer.Close(); err != nil {
+			log.Printf("Failed to close job streamer: %v", err)
+		}
+	})
 
 	buf := make([]byte, 4096)
 
