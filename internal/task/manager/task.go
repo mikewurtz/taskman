@@ -1,7 +1,6 @@
 package task
 
 import (
-	"context"
 	"sync"
 	"time"
 
@@ -57,11 +56,6 @@ func CreateNewTask(id, clientID string, pid int, startTime time.Time, writer *Ta
 // closeWriter closes the writer for the task
 func (t *Task) closeWriter() {
 	t.writer.Close()
-}
-
-// ReadOutput delegates to TaskWriter
-func (t *Task) ReadOutput(ctx context.Context, offset int64) ([]byte, int64, error) {
-	return t.writer.ReadOutput(ctx, offset)
 }
 
 // GetID returns the task ID

@@ -2,6 +2,10 @@ package server
 
 import (
 	"context"
+	"errors"
+	"io"
+	"log"
+	"slices"
 
 	pb "github.com/mikewurtz/taskman/gen/proto"
 
@@ -101,16 +105,35 @@ func (s *taskManagerServer) StreamTaskOutput(req *pb.StreamTaskOutputRequest, st
 		return err
 	}
 
-	// Create a writer that sends data over the gRPC stream
-	// stream.Send() will block if the client is slow to read the data
-	writer := func(data []byte) error {
-		return stream.Send(&pb.StreamTaskOutputResponse{Output: data})
-	}
-
-	err = s.taskManager.StreamTaskOutput(stream.Context(), req.TaskId, writer)
+	// Get a reader that reads the output of the task
+	jobStreamer, err := s.taskManager.GetStreamer(stream.Context(), req.TaskId)
 	if err != nil {
 		return task.TaskErrorToGRPC(err)
 	}
+	context.AfterFunc(stream.Context(), func() { jobStreamer.Close() })
 
-	return nil
+	buf := make([]byte, 4096)
+
+	for {
+		n, err := jobStreamer.Read(buf)
+		if errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			if stream.Context().Err() != nil {
+				log.Printf("Client context canceled: %v", stream.Context().Err())
+				return task.TaskErrorToGRPC(err)
+			} else if errors.Is(err, context.Canceled) {
+				log.Printf("Server context canceled: %v", err)
+				return task.TaskErrorToGRPC(task.NewTaskErrorWithErr(task.ErrCanceled, "server context canceled", err))
+			}
+			return task.TaskErrorToGRPC(task.NewTaskErrorWithErr(task.ErrInternal, "failed to read output", err))
+		}
+
+		if n > 0 {
+			// Send the output to the client; send will block if the client is slow to read the data
+			if err := stream.Send(&pb.StreamTaskOutputResponse{Output: slices.Clone(buf[:n])}); err != nil {
+				return task.TaskErrorToGRPC(err)
+			}
+		}
+	}
 }

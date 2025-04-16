@@ -3,6 +3,7 @@ package task
 import (
 	"context"
 	"io"
+	"log"
 	"slices"
 	"sync"
 )
@@ -27,7 +28,7 @@ func NewTaskWriter() *TaskWriter {
 		// TODO: make this configurable
 		// Set up a buffer with an initial size so we avoid reallocations
 		// early on when the task is just starting
-		output: make([]byte, 0, 4096),
+		output: make([]byte, 0, maxChunkSize),
 		done:   make(chan struct{}),
 	}
 	tw.cond = sync.NewCond(&tw.mu)
@@ -91,6 +92,7 @@ func (tw *TaskWriter) ReadOutput(ctx context.Context, offset int64) ([]byte, int
 
 		select {
 		case <-ctx.Done():
+			log.Printf("TaskWriter context canceled returning error: %v", ctx.Err())
 			return nil, offset, ctx.Err()
 		case <-tw.done:
 			if offset >= int64(len(tw.output)) {
