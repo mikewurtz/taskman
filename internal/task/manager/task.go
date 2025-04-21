@@ -22,6 +22,8 @@ type Task struct {
 	terminationSource string
 	endTime           time.Time
 	done              chan struct{}
+
+	writer *TaskWriter
 }
 
 // TaskSnapshot is a snapshot of the task's state
@@ -38,8 +40,8 @@ type TaskSnapshot struct {
 	TerminationSource string
 }
 
-// NewTask creates a new task
-func CreateNewTask(id, clientID string, pid int, startTime time.Time) *Task {
+// CreateNewTask creates a new task with a writer
+func CreateNewTask(id, clientID string, pid int, startTime time.Time, writer *TaskWriter) *Task {
 	return &Task{
 		id:        id,
 		clientID:  clientID,
@@ -47,7 +49,13 @@ func CreateNewTask(id, clientID string, pid int, startTime time.Time) *Task {
 		startTime: startTime,
 		status:    basetask.JobStatusStarted,
 		done:      make(chan struct{}),
+		writer:    writer,
 	}
+}
+
+// closeWriter closes the writer for the task
+func (t *Task) closeWriter() {
+	t.writer.Close()
 }
 
 // GetID returns the task ID

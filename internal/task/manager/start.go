@@ -51,10 +51,17 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 		CgroupFD:    int(cgroupFd.Fd()),
 	}
 
+	writer := NewTaskWriter()
+	// Set up output capture; we use a single writer for both stdout and stderr
+	cmd.Stdout = writer
+	cmd.Stderr = writer
+
 	// Start the process
 	if err := cmd.Start(); err != nil {
+		if err := cgroupFd.Close(); err != nil {
+			log.Printf("Failed to close cgroup file descriptor after process start failure: %v", err)
+		}
 		// clean up the cgroup so it doesn't leak
-		cgroupFd.Close()
 		if cleanupErr := cgroups.RemoveCgroupForTask(taskID); cleanupErr != nil {
 			log.Printf("Failed to clean up cgroup after process start failure: %v", cleanupErr)
 		}
@@ -76,10 +83,13 @@ func (tm *TaskManager) StartTask(ctx context.Context, command string, args []str
 		pgid = cmd.Process.Pid
 	}
 	// we can now safely close the CgroupFD
-	cgroupFd.Close()
+	if err := cgroupFd.Close(); err != nil {
+		// if we fail to close the cgroup FD log the error but continue as task is already started
+		log.Printf("Failed to close cgroup file descriptor after process start: %v", err)
+	}
 
 	// Create the new task and add it to the task manager
-	task := CreateNewTask(taskID, clientID.(string), pgid, startTime)
+	task := CreateNewTask(taskID, clientID.(string), pgid, startTime, writer)
 	tm.addTask(task)
 
 	// Start monitoring the process

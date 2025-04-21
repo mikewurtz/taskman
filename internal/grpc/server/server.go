@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -92,14 +93,26 @@ func (s *Server) Addr() string {
 // Shutdown shuts down the gRPC server and waits for all tasks to complete
 func (s *Server) Shutdown() {
 	log.Println("Shutting down gRPC server...")
-	// TODO: GracefulStop() waits for all RPCs to complete
-	// we should add a timeout to the graceful stop
-	// for now the supported RPCs are all quick to return so we should be fine
-	s.grpcServer.GracefulStop()
+
+	// GracefulStop with timeout
+	done := make(chan struct{})
+	go func() {
+		s.grpcServer.GracefulStop()
+		close(done)
+	}()
+
+	// give the ongoing RPCs a chance to complete
+	// TODO: make this timeout configurable
+	select {
+	case <-done:
+		log.Println("gRPC server stopped gracefully.")
+	case <-time.After(30 * time.Second):
+		log.Println("GracefulStop timed out; forcing shutdown.")
+		s.grpcServer.Stop()
+	}
 
 	log.Println("Waiting for all tasks to complete...")
-	err := s.taskServer.taskManager.WaitForTasks()
-	if err != nil {
+	if err := s.taskServer.taskManager.WaitForTasks(); err != nil {
 		log.Printf("Error waiting for tasks to complete: %v", err)
 	}
 }

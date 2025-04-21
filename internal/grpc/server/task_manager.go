@@ -2,6 +2,10 @@ package server
 
 import (
 	"context"
+	"errors"
+	"io"
+	"log"
+	"slices"
 
 	pb "github.com/mikewurtz/taskman/gen/proto"
 
@@ -89,7 +93,51 @@ func checkAuthorization(caller string, taskObj *taskmanager.Task) error {
 	return nil
 }
 
-// StreamTaskOutput
+// StreamTaskOutput outputs the task’s streams to the client by tracking its read offset.
 func (s *taskManagerServer) StreamTaskOutput(req *pb.StreamTaskOutputRequest, stream pb.TaskManager_StreamTaskOutputServer) error {
-	return status.Errorf(codes.Unimplemented, "StreamTaskOutput not implemented")
+	taskObj, err := s.taskManager.GetTask(stream.Context(), req.TaskId)
+	if err != nil {
+		return task.TaskErrorToGRPC(err)
+	}
+
+	caller := stream.Context().Value(basegrpc.ClientIDKey).(string)
+	if err = checkAuthorization(caller, taskObj); err != nil {
+		return err
+	}
+
+	// Get a reader that reads the output of the task
+	jobStreamer, err := s.taskManager.GetStreamer(stream.Context(), req.TaskId)
+	if err != nil {
+		return task.TaskErrorToGRPC(err)
+	}
+	context.AfterFunc(stream.Context(), func() {
+		if err := jobStreamer.Close(); err != nil {
+			log.Printf("Failed to close job streamer: %v", err)
+		}
+	})
+
+	buf := make([]byte, 4096)
+
+	for {
+		n, err := jobStreamer.Read(buf)
+		if errors.Is(err, io.EOF) {
+			return nil
+		} else if err != nil {
+			if stream.Context().Err() != nil {
+				log.Printf("Client context canceled: %v", stream.Context().Err())
+				return task.TaskErrorToGRPC(err)
+			} else if errors.Is(err, context.Canceled) {
+				log.Printf("Server context canceled: %v", err)
+				return task.TaskErrorToGRPC(task.NewTaskErrorWithErr(task.ErrCanceled, "server context canceled", err))
+			}
+			return task.TaskErrorToGRPC(task.NewTaskErrorWithErr(task.ErrInternal, "failed to read output", err))
+		}
+
+		if n > 0 {
+			// Send the output to the client; send will block if the client is slow to read the data
+			if err := stream.Send(&pb.StreamTaskOutputResponse{Output: slices.Clone(buf[:n])}); err != nil {
+				return task.TaskErrorToGRPC(err)
+			}
+		}
+	}
 }

@@ -31,6 +31,7 @@ func (tm *TaskManager) addTask(task *Task) {
 }
 
 // WaitForTasks waits for all tasks to complete with a timeout
+// TODO: make this timeout configurable
 func (tm *TaskManager) WaitForTasks() error {
 	tm.mu.RLock()
 	tasks := make([]*Task, 0, len(tm.tasksMapByID))
@@ -66,6 +67,7 @@ func (tm *TaskManager) WaitForTasks() error {
 	}
 }
 
+// getTaskFromMap gets a task from the task map by task ID
 func (tm *TaskManager) getTaskFromMap(taskID string) (*Task, error) {
 	tm.mu.RLock()
 	defer tm.mu.RUnlock()

@@ -88,7 +88,7 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 			}
 		} else {
 			task.SetStatus(basetask.JobStatusSignaled)
-			if task.GetTerminationSignal() == "" {
+			if task.GetTerminationSource() == "" {
 				task.SetTerminationSource("system")
 			}
 		}
@@ -98,6 +98,8 @@ func (tm *TaskManager) monitorProcess(taskID string, cmd *exec.Cmd) {
 	if cleanupErr := cgroups.RemoveCgroupForTask(taskID); cleanupErr != nil {
 		log.Printf("Failed to clean up cgroup after process completion: %v", cleanupErr)
 	}
+
+	task.closeWriter()
 
 	// Signal that this task is done
 	close(task.done)

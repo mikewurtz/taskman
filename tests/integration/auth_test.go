@@ -131,6 +131,19 @@ func TestIntegration_StartTaskTestAuthorization(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, codes.NotFound, sts.Code())
 
+	// Try to stream the task output using a different client (unauthorized)
+	stream, err := client2.StreamTaskOutput(ctx, &pb.StreamTaskOutputRequest{
+		TaskId: resp.TaskId,
+	})
+	require.NoError(t, err)
+
+	_, err = stream.Recv()
+	require.Error(t, err)
+
+	sts, ok = status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.NotFound, sts.Code())
+
 	// get the status of the task using the admin client
 	adminClient := createTestClient(t, "admin")
 	var adminStatusResp *pb.TaskStatusResponse
@@ -151,4 +164,5 @@ func TestIntegration_StartTaskTestAuthorization(t *testing.T) {
 	assert.Equal(t, resp.TaskId, adminStatusResp.TaskId)
 	assert.NotNil(t, adminStatusResp.ExitCode)
 	assert.Equal(t, int32(0), *adminStatusResp.ExitCode)
+
 }
